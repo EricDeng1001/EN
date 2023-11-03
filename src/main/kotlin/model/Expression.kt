@@ -1,8 +1,10 @@
 package model
 
 import kotlinx.serialization.Serializable
+
 typealias TimeLength = Int
 typealias ArgName = String
+
 @Serializable
 data class Expression(
     val inputs: List<DataId>,
@@ -19,6 +21,10 @@ data class Expression(
 
     @Serializable
     data class AlignmentRule(val offsets: Map<DataId, TimeLength>) {
+    }
+
+    fun isRoot(): Boolean {
+        return this.inputs.isEmpty()
     }
 
 }
