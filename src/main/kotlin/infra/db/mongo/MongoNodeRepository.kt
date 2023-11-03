@@ -9,20 +9,17 @@ object MongoNodeRepository: NodeRepository {
         TODO("Not yet implemented")
     }
 
-    override fun queryByExpression(expression: Expression): ExpressionNode {
+    override fun queryByExpression(expression: Expression): Node {
         TODO("Not yet implemented")
     }
 
 
-    override fun queryByInput(id: DataId): ExpressionNode {
+    override fun queryByInput(id: DataId): Node {
         TODO("Not yet implemented")
     }
 
-    override fun queryByOutput(id: DataId): ExpressionNode {
+    override fun queryByOutput(id: DataId): Node {
         TODO("Not yet implemented")
     }
 
-    override fun queryRoot(id: DataId): RootNode {
-        TODO("Not yet implemented")
-    }
 }

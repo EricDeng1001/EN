@@ -2,10 +2,9 @@ package model
 
 interface NodeRepository {
     fun save(node: Node): Node
-    fun queryByExpression(expression: Expression): ExpressionNode
-    fun queryByInput(id: DataId): ExpressionNode
+    fun queryByExpression(expression: Expression): Node
+    fun queryByInput(id: DataId): Node
 
-    fun queryByOutput(id: DataId): ExpressionNode
-    fun queryRoot(id: DataId): RootNode
+    fun queryByOutput(id: DataId): Node
 
 }

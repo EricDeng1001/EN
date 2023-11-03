@@ -1,4 +1,10 @@
 package model
 
-abstract class Node {
-}
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class Node(
+    val effectivePtr: Pointer,
+    val expectedPtr: Pointer,
+    val expression: Expression
+)
