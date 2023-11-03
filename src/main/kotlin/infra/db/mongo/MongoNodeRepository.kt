@@ -1,10 +1,9 @@
 package infra.db.mongo
 
-import com.mongodb.reactivestreams.client.MongoDatabase
 import model.*
-import web.Constants
 
-class NodeMongoRepository(database: MongoDatabase): NodeRepository {
+object MongoNodeRepository: NodeRepository {
+    val nodeDatabase = MongoConnection.client.getDatabase("node")
 //    val collection = database.getCollection<>(Constants.MONGODB_NODE_TABLE_NAME)
     override fun save(node: Node): Node {
         TODO("Not yet implemented")
