@@ -16,6 +16,7 @@ repositories {
     }
 }
 val ktorVersion = "2.3.5"
+val mongodbVersion = "4.10.1"
 dependencies {
     testImplementation(kotlin("test"))
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
@@ -23,6 +24,9 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("ch.qos.logback:logback-classic:1.4.11")
+
+    // MongoDB Kotlin driver dependency
+    implementation("org.mongodb:mongodb-driver-kotlin-coroutine:$mongodbVersion")
 }
 
 tasks.test {

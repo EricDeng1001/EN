@@ -10,22 +10,22 @@ import model.Expression
 import model.ExpressionNetwork
 import model.FuncId
 
-fun Route.routes() {
+fun Route.routes(expressionNetwork: ExpressionNetwork) {
     post("/run") {
         val dataId = call.receive<DataId>()
-        ExpressionNetwork.run(dataId)
+        expressionNetwork.run(dataId)
         call.respond(HttpStatusCode.OK)
     }
 
     post("/add") {
         val expression = call.receive<Expression>()
-        val ids = ExpressionNetwork.add(expression)
+        val ids = expressionNetwork.add(expression)
         call.respond(ids)
     }
 
     post("/update_func") {
         val funcId = call.receive<FuncId>()
-        ExpressionNetwork.updateFunc(funcId)
+        expressionNetwork.updateFunc(funcId)
         call.respond(HttpStatusCode.OK)
     }
 }

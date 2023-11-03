@@ -1,8 +1,19 @@
 package model
 
-object ExpressionNetwork {
-    fun run(id: DataId) {
+class ExpressionNetwork private constructor(private val nodeRepository: NodeRepository) {
+    companion object {
 
+        @Volatile
+        private var INSTANCE: ExpressionNetwork? = null
+
+        fun getInstance(nodeRepository: NodeRepository): ExpressionNetwork =
+            INSTANCE ?: synchronized(this) {
+                INSTANCE ?: ExpressionNetwork(nodeRepository)
+            }
+    }
+
+    fun run(id: DataId) {
+        TODO()
     }
 
     fun findUpstream(id: DataId): Set<Node> {
