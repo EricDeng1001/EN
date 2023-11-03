@@ -11,12 +11,13 @@ abstract class ExpressionNetwork(
 ) {
 
     fun run(id: DataId) {
-        val node = nodeRepository.queryByOutput(id)
+        val node = nodeRepository.queryByOutput(id) ?: return
         if (node.expression.inputs.isNotEmpty()) {
             runExpressionNode(node)
         } else {
             runRootNode(node)
         }
+        nodeRepository.unlockNode(node)
     }
 
     private fun runRootNode(node: Node) {
@@ -47,11 +48,11 @@ abstract class ExpressionNetwork(
 
     fun finishRun(id: TaskId) {
         val task = taskRepository.get(id)
-        val node = nodeRepository.queryByOutput(task.expression.outputs[0])
-        node.isRunning = false // lock
-        if (node.toResetPtr) { // lock
+        val node = nodeRepository.queryByOutput(task.expression.outputs[0])!!
+        node.isRunning = false
+        if (node.toResetPtr) {
             node.effectivePtr = Pointer.ZERO
-            node.toResetPtr = false // lock
+            node.toResetPtr = false
         } else {
             node.effectivePtr = node.expectedPtr
         }
@@ -62,7 +63,7 @@ abstract class ExpressionNetwork(
 
     fun failedRun(id: TaskId) {
         val task = taskRepository.get(id)
-        val node = nodeRepository.queryByOutput(task.expression.outputs[0])
+        val node = nodeRepository.queryByOutput(task.expression.outputs[0])!!
         taskRepository.delete(id)
         markNodeInvalid(node)
     }
@@ -84,7 +85,7 @@ abstract class ExpressionNetwork(
 //    }
 
     fun updateFunc(funcId: FuncId) {
-        val node = nodeRepository.queryByFunc()
+        val node = nodeRepository.queryByFunc(funcId)!!
         if (node.isRunning) { // lock
             node.toResetPtr = true // lock
         } else {
@@ -96,7 +97,7 @@ abstract class ExpressionNetwork(
     fun findUpstream(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.inputs) {
-            result.add(nodeRepository.queryByOutput(input))
+            result.add(nodeRepository.queryByOutput(input)!!)
         }
         return result
     }
@@ -105,7 +106,7 @@ abstract class ExpressionNetwork(
     fun findDownstream(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.outputs) {
-            result.add(nodeRepository.queryByOutput(input))
+            result.add(nodeRepository.queryByOutput(input)!!)
         }
         return result
     }
