@@ -6,5 +6,6 @@ interface NodeRepository {
     fun queryByInput(id: DataId): Node
 
     fun queryByOutput(id: DataId): Node
+    fun queryByFunc(): Node
 
 }

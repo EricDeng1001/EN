@@ -27,7 +27,8 @@ Content-Type: application/json
       "type": "float",
       "value": "42"
     }
-  }
+  },
+  "outputs": ["1", "2", "3"]
 }
 ###
 POST localhost:8080/update_func

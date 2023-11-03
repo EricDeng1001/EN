@@ -1,10 +1,14 @@
 package infra.db.mongo
 
-import model.*
+import model.DataId
+import model.Expression
+import model.Node
+import model.NodeRepository
 
-object MongoNodeRepository: NodeRepository {
+object MongoNodeRepository : NodeRepository {
     val nodeDatabase = MongoConnection.client.getDatabase("node")
-//    val collection = database.getCollection<>(Constants.MONGODB_NODE_TABLE_NAME)
+
+    //    val collection = database.getCollection<>(Constants.MONGODB_NODE_TABLE_NAME)
     override fun save(node: Node): Node {
         TODO("Not yet implemented")
     }
@@ -21,5 +25,4 @@ object MongoNodeRepository: NodeRepository {
     override fun queryByOutput(id: DataId): Node {
         TODO("Not yet implemented")
     }
-
 }

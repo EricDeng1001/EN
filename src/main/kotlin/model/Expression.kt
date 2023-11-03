@@ -5,9 +5,8 @@ typealias TimeLength = Int
 typealias ArgName = String
 @Serializable
 data class Expression(
-    val valid: Boolean = true,
     val inputs: List<DataId>,
-    val outputs: List<DataId> = emptyList(),
+    var outputs: List<DataId>,
     val funcId: FuncId,
     val shapeRule: ShapeRule,
     val alignmentRule: AlignmentRule,
