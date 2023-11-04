@@ -1,4 +1,5 @@
 package model
 
 
-typealias DataId = String
+@JvmInline
+value class DataId(val str: String)

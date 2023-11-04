@@ -1,6 +1,8 @@
 package model
 
+import kotlinx.coroutines.sync.Mutex
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 
 abstract class ExpressionNetwork(
@@ -9,71 +11,140 @@ abstract class ExpressionNetwork(
     private val dataManager: DataManager,
     private val executor: Executor
 ) {
+    private val loadedNodes: MutableMap<Node.Id, Node> = ConcurrentHashMap()
+    private val locks: MutableMap<Node.Id, Mutex> = ConcurrentHashMap()
 
-    fun run(id: DataId) {
-        val node = nodeRepository.queryByOutput(id) ?: return
+    suspend fun getNode(id: DataId): Node? {
+        val node = nodeRepository.queryByOutput(id) ?: return null
+        return saveToLoaded(node)
+    }
+
+    suspend fun findNodeByInput(id: DataId): List<Node> {
+        val nodes = nodeRepository.queryByInput(id)
+        return nodes.map { saveToLoaded(it) }
+    }
+
+    private suspend fun saveToLoaded(node: Node): Node {
+        var it = node
+        val mutex = locks.computeIfAbsent(it.id) { Mutex() }
+        try {
+            mutex.lock()
+            val loadedNode = loadedNodes[it.id]
+            if (loadedNode != null) {
+                it = loadedNode
+            } else {
+                loadedNodes[it.id] = it
+            }
+            return it
+        } finally {
+            mutex.unlock()
+        }
+    }
+
+    suspend fun run(id: DataId) {
+        val node = getNode(id) ?: return
         if (node.expression.inputs.isNotEmpty()) {
-            runExpressionNode(node)
+            tryRunExpressionNode(node)
         } else {
             runRootNode(node)
         }
-        nodeRepository.unlockNode(node)
     }
 
-    private fun runRootNode(node: Node) {
+    private suspend fun runRootNode(node: Node) {
         node.effectivePtr = dataManager.findLastPtr(node.expression.outputs[0])
         node.expectedPtr = node.effectivePtr
         nodeRepository.save(node)
-        runDownstream(node)
+        updateDownstream(node)
     }
 
-    private fun runExpressionNode(node: Node) {
-        if (!node.valid) return
-        val task = Task(
-            id = genId(),
-            expression = node.expression
-        )
-        taskRepository.save(task)
-        executor.run(node.expression, withId = task.id, from = node.expectedPtr, to = node.expectedPtr)
-        node.isRunning = true
-        nodeRepository.save(node)
-    }
-
-    private fun runDownstream(node: Node) {
-        for (dNode in findDownstream(node.expression)) {
-            dNode.expectedPtr = node.effectivePtr
-            runExpressionNode(dNode)
+    private suspend fun tryRunExpressionNode(node: Node) {
+        // end 3
+        if (!node.valid) {
+            endRun(node)
+            return
+        }
+        val mutex =
+            locks[node.id]!! // must exists, or the code is wrong, for tryRun should ways happens after get/load node
+        try {
+            mutex.lock()
+            if (node.isRunning) { // somehow double run, doesn't matter, we can safe ignore this
+                return
+            }
+            if (node.shouldRun()) {
+                val task = Task(
+                    id = genId(),
+                    expression = node.expression
+                )
+                taskRepository.save(task)
+                executor.run(node.expression, withId = task.id, from = node.expectedPtr, to = node.expectedPtr)
+                node.isRunning = true
+            } else { // somehow the node is not suppose to run, end this run
+                endRun(node)
+            }
+        } finally {
+            mutex.unlock()
         }
     }
 
-    fun finishRun(id: TaskId) {
-        val task = taskRepository.get(id)
-        val node = nodeRepository.queryByOutput(task.expression.outputs[0])!!
+    private suspend fun updateDownstream(root: Node) {
+        for (node in loadDownstream(root.expression)) {
+            node.expectedPtr = findExpectedPtr(node.expression)
+            nodeRepository.save(node)  // update expected ptr
+            tryRunExpressionNode(node) // try run (this start a new run session)
+        }
+    }
+
+    private suspend fun findExpectedPtr(expression: Expression): Pointer {
+        val nodes = loadUpstream(expression)
+        var expectedPtr: Pointer = Pointer.MAX
+        for (node in nodes) {
+            expectedPtr = minOf(node.effectivePtr, expectedPtr)
+        }
+        return expectedPtr
+    }
+
+    // end 1
+    suspend fun succeedRun(id: TaskId) {
+        val task = taskRepository.get(id) ?: return
+        // doesn't relly matter if we load from db or not
+        val node = getNode(task.expression.outputs[0])!!
+        val mutex = locks[node.id]!!
+        // mutex could be empty when updateFunc enters first and during locked, a run start. this way no lock will preserve
+        mutex.lock()
         node.isRunning = false
-        if (node.toResetPtr) {
-            node.effectivePtr = Pointer.ZERO
-            node.toResetPtr = false
-        } else {
+        if (!node.resetPtr) { // a success run
             node.effectivePtr = node.expectedPtr
+            nodeRepository.save(node)
         }
-        nodeRepository.save(node)
+        endRun(node)
+        mutex.unlock()
         taskRepository.delete(id)
-        runDownstream(node)
+        updateDownstream(node)
     }
 
-    fun failedRun(id: TaskId) {
-        val task = taskRepository.get(id)
-        val node = nodeRepository.queryByOutput(task.expression.outputs[0])!!
-        taskRepository.delete(id)
-        markNodeInvalid(node)
+    private fun endRun(node: Node) {
+        locks.remove(node.id) // always release lock's mem when finish running
+        loadedNodes.remove(node.id)
     }
 
-    private fun markNodeInvalid(node: Node) {
+    suspend fun failedRun(id: TaskId) {
+        val task = taskRepository.get(id) ?: return
+        taskRepository.delete(id)
+        val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
+        markInvalid(node)
+    }
+
+    // end 2
+    private suspend fun markInvalid(node: Node) {
+        val mutex = locks[node.id]!!
+        mutex.lock()
+        endRun(node)
         node.valid = false
         node.effectivePtr = Pointer.ZERO
         nodeRepository.save(node)
-        for (dNode in findDownstream(node.expression)) {
-            markNodeInvalid(dNode)
+        mutex.unlock()
+        for (dNode in loadDownstream(node.expression)) {
+            markInvalid(dNode)
         }
     }
 
@@ -84,53 +155,60 @@ abstract class ExpressionNetwork(
 //        executor.run()
 //    }
 
-    fun updateFunc(funcId: FuncId) {
-        val node = nodeRepository.queryByFunc(funcId)!!
-        if (node.isRunning) { // lock
-            node.toResetPtr = true // lock
-        } else {
-            node.effectivePtr = Pointer.ZERO
+    suspend fun updateFunc(funcId: FuncId) {
+        for (node in nodeRepository.queryByFunc(funcId)) {
+            markNeedUpdate(node)
         }
-        nodeRepository.save(node)
     }
 
-    fun findUpstream(expression: Expression): Set<Node> {
+    private suspend fun markNeedUpdate(node: Node) {
+        val mutex = locks.computeIfAbsent(node.id) { Mutex() }
+        mutex.lock()
+        node.resetPtr = true
+        node.effectivePtr = Pointer.ZERO
+        node.valid = true
+        nodeRepository.save(node)
+        mutex.unlock()
+        for (dNode in loadDownstream(node.expression)) {
+            markNeedUpdate(dNode)
+        }
+    }
+
+
+    suspend fun loadUpstream(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.inputs) {
-            result.add(nodeRepository.queryByOutput(input)!!)
+            result.add(getNode(input) ?: continue)
         }
         return result
     }
 
 
-    fun findDownstream(expression: Expression): Set<Node> {
+    suspend fun loadDownstream(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.outputs) {
-            result.add(nodeRepository.queryByOutput(input)!!)
+            result.addAll(findNodeByInput(input))
         }
         return result
     }
 
-    fun add(expression: Expression): List<DataId> {
+    suspend fun add(expression: Expression): List<DataId> {
+        val queryByExpression = nodeRepository.queryByExpression(expression)
+        if (queryByExpression != null) return queryByExpression.expression.outputs
         val result = ArrayList<DataId>()
         for (output in expression.outputs) {
-            result.add(genId())
+            result.add(DataId(genId()))
         }
         expression.outputs = result
-        val nodes = findUpstream(expression)
-        var expectedPtr: Pointer = Pointer.MAX
-        for (node in nodes) {
-            expectedPtr = minOf(node.effectivePtr, expectedPtr)
-        }
         val node = Node(
             effectivePtr = Pointer.ZERO,
-            expectedPtr = expectedPtr,
+            expectedPtr = findExpectedPtr(expression),
             expression = expression,
             valid = true,
-            isRunning = false,
-            toResetPtr = false
+            resetPtr = false,
+            isRunning = false
         )
-        nodeRepository.save(node) // 持久化
+        nodeRepository.save(node)
         return result
     }
 
