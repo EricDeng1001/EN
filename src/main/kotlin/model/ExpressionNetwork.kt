@@ -14,12 +14,12 @@ abstract class ExpressionNetwork(
     private val loadedNodes: MutableMap<Node.Id, Node> = ConcurrentHashMap()
     private val locks: MutableMap<Node.Id, Mutex> = ConcurrentHashMap()
 
-    suspend fun getNode(id: DataId): Node? {
+    private suspend fun getNode(id: DataId): Node? {
         val node = nodeRepository.queryByOutput(id) ?: return null
         return saveToLoaded(node)
     }
 
-    suspend fun findNodeByInput(id: DataId): List<Node> {
+    private suspend fun findNodeByInput(id: DataId): List<Node> {
         val nodes = nodeRepository.queryByInput(id)
         return nodes.map { saveToLoaded(it) }
     }
