@@ -1,8 +1,10 @@
 package model
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
 import kotlin.concurrent.timerTask
 import kotlin.test.Test
@@ -80,7 +82,7 @@ class MockExecutor : Executor {
                     callback.failedRun(withId)
                 }
             }
-        }, 2000)
+        }, 100) // 主要是为了隔离线程
     }
 
     override fun tryCancel(id: TaskId) {
@@ -99,6 +101,7 @@ class ExpressionNetworkTest(
 object TestCases {
     val d1 = DataId("d1")
     val d2 = DataId("d2")
+    val d3 = DataId("d3")
     val p1 = DataId("p1")
     val p2 = DataId("p2")
     val f1 = FuncId("f1")
@@ -111,6 +114,7 @@ object TestCases {
             MockDataManager(),
             MockExecutor()
         )
+        e.executor.callback = e
         return e
     }
 
@@ -122,6 +126,11 @@ object TestCases {
             en.add(Expression.makeRoot(d2))
             assertNotNull(en.nodeRepository.queryByOutput(d1))
             assertNotNull(en.nodeRepository.queryByOutput(d2))
+            assertEquals(Pointer(0), en.nodeRepository.queryByOutput(d1)!!.effectivePtr)
+            assertEquals(Pointer(0), en.nodeRepository.queryByOutput(d2)!!.effectivePtr)
+            // manually set effective ptr to see post add
+            en.nodeRepository.queryByOutput(d1)!!.effectivePtr = Pointer(10)
+            en.nodeRepository.queryByOutput(d2)!!.effectivePtr = Pointer(10)
             var genIds = en.add(
                 Expression(
                     inputs = listOf(d1, d2),
@@ -132,8 +141,10 @@ object TestCases {
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
+
             for (id in genIds) {
                 assertNotNull(en.nodeRepository.queryByOutput(id))
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
             }
             genIds = en.add(
                 Expression(
@@ -147,13 +158,129 @@ object TestCases {
             )
             for (id in genIds) {
                 assertNotNull(en.nodeRepository.queryByOutput(id))
+                assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+            }
+            en.add(Expression.makeRoot(d3))
+            genIds = en.add(
+                Expression(
+                    inputs = listOf(d1, d3),
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            for (id in genIds) {
+                assertNotNull(en.nodeRepository.queryByOutput(id))
+                // because d3 is zero, even if d1 is 10, this should be zero
+                assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(id)!!.expectedPtr)
             }
         }
     }
 
     @Test
-    fun testRunSpread() {
-
+    fun testRunRoot() {
+        val en = setUp()
+        runBlocking {
+            en.add(Expression.makeRoot(d1))
+            en.add(Expression.makeRoot(d2))
+            en.dataManager.ptr = Pointer(10) // mock data update
+            en.run(d1)
+            en.run(d2)
+            assertEquals(Pointer(10), en.nodeRepository.queryByOutput(d1)!!.effectivePtr)
+            assertEquals(Pointer(10), en.nodeRepository.queryByOutput(d2)!!.effectivePtr)
+            en.dataManager.ptr = Pointer(42) // mock data update
+            en.run(d1)
+            en.run(d2)
+            assertEquals(Pointer(42), en.nodeRepository.queryByOutput(d1)!!.effectivePtr)
+            assertEquals(Pointer(42), en.nodeRepository.queryByOutput(d2)!!.effectivePtr)
+        }
     }
+
+
+    @Test
+    fun testRunSpread() {
+        val en = setUp()
+        runBlocking {
+            en.add(Expression.makeRoot(d1))
+            en.add(Expression.makeRoot(d2))
+            val exp1 = en.add(
+                Expression(
+                    inputs = listOf(d1, d2),
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            val exp2 = en.add(
+                Expression(
+                    inputs = exp1,
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            en.dataManager.ptr = Pointer(10) // mock data update
+            en.executor.isSuccess = true // mock succeed exec
+            en.run(d1)
+            // we don't need wait for exec because this case shouldn't cause any run in executor
+            for (id in exp1) {
+                // 计算应该没有传播下来，因为只有一个上游更新了
+                assertEquals(Pointer(0), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+                assertEquals(Pointer(0), en.nodeRepository.queryByOutput(id)!!.effectivePtr)
+            }
+            en.run(d2)
+            // 计算应该已经传播下来，其中expected ptr是立刻传播, effective ptr会在计算完成后传播
+            for (id in exp1) {
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+            }
+            delay(150) // wait for "succeed run" for this node is now exec
+            for (id in exp1) {
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.effectivePtr)
+            }
+            // exp1 算完后， exp2 expected ptr应该立刻得到传播
+            for (id in exp2) {
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+            }
+            delay(150) // wait for "succeed run" for this node is now exec
+            for (id in exp2) {
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.effectivePtr)
+            }
+            en.add(Expression.makeRoot(d3))
+            val exp3Inputs = ArrayList<DataId>(exp1)
+            exp3Inputs.add(d3)
+            val exp3 = en.add(
+                Expression(
+                    inputs = exp3Inputs,
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            for (id in exp3) {
+                // exp3 应该没有更新 因为还有d3没有更新
+                assertEquals(Pointer(0), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+            }
+            // 更新d3
+            en.run(d3)
+            for (id in exp3) {
+                // exp3 应该更新expectedPtr
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+            }
+            delay(150)
+            for (id in exp3) {
+                // exp3 应该更新effectivePtr
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.effectivePtr)
+            }
+        }
+    }
+
 }
 
