@@ -22,13 +22,16 @@ class MockNodeRepo : NodeRepository {
     override fun save(node: Node): Node {
         idMap[node.id] = node
         funcMap.computeIfAbsent(node.expression.funcId) { HashSet() }.add(node)
-        expressionMap[node.expression] = node
         node.expression.inputs.forEach {
             inputMap.computeIfAbsent(it) { HashSet() }.add(node)
         }
         node.expression.outputs.forEach {
             outputMap[it] = node
         }
+        val expression = node.expression
+        val queryExpression = expression.copy()
+        queryExpression.outputs = emptyList()
+        expressionMap[queryExpression] = node
         return node
     }
 
@@ -161,6 +164,7 @@ object TestCases {
                 assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(id)!!.expectedPtr)
             }
             en.add(Expression.makeRoot(d3))
+            assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(d3)!!.expectedPtr)
             genIds = en.add(
                 Expression(
                     inputs = listOf(d1, d3),
@@ -176,6 +180,26 @@ object TestCases {
                 // because d3 is zero, even if d1 is 10, this should be zero
                 assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(id)!!.expectedPtr)
             }
+        }
+    }
+
+    @Test
+    fun testDuplicatedAdd() {
+        val en = setUp()
+        runBlocking {
+            en.add(Expression.makeRoot(d1))
+            en.add(Expression.makeRoot(d2))
+            val expr = Expression(
+                inputs = listOf(d1, d2),
+                outputs = listOf(p1),
+                f1,
+                shapeRule = Expression.ShapeRule(1, 1),
+                alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+            )
+            val ids1 = en.add(expr)
+            val ids2 = en.add(expr)
+            assertEquals(ids1, ids2)
         }
     }
 

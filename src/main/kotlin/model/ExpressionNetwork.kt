@@ -76,7 +76,7 @@ abstract class ExpressionNetwork(
                     expression = node.expression
                 )
                 taskRepository.save(task)
-                executor.run(node.expression, withId = task.id, from = node.expectedPtr, to = node.expectedPtr)
+                executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 node.isRunning = true
             } else { // somehow the node is not suppose to run, end this run
                 endRun(node)
@@ -113,13 +113,19 @@ abstract class ExpressionNetwork(
         mutex.lock()
         node.isRunning = false
         if (!node.resetPtr) { // a success run
-            node.effectivePtr = node.expectedPtr
-            nodeRepository.save(node)
+            try {
+                node.effectivePtr = node.expectedPtr
+                nodeRepository.save(node)
+            } finally {
+                mutex.unlock()
+            }
+            updateDownstream(node)
+        } else {
+            // should abort this run
+            mutex.unlock()
         }
         endRun(node)
-        mutex.unlock()
         taskRepository.delete(id)
-        updateDownstream(node)
     }
 
     private fun endRun(node: Node) {
@@ -164,11 +170,14 @@ abstract class ExpressionNetwork(
     private suspend fun markNeedUpdate(node: Node) {
         val mutex = locks.computeIfAbsent(node.id) { Mutex() }
         mutex.lock()
-        node.resetPtr = true
+        if (node.isRunning) {
+            node.resetPtr = true
+        }
         node.effectivePtr = Pointer.ZERO
         node.valid = true
         nodeRepository.save(node)
         mutex.unlock()
+
         for (dNode in loadDownstream(node.expression)) {
             markNeedUpdate(dNode)
         }
@@ -205,7 +214,7 @@ abstract class ExpressionNetwork(
         if (queryByExpression != null) return queryByExpression.expression.outputs
 
         for (input in expression.inputs) {
-            if (nodeRepository.queryByOutput(input) == null) { // invalid expression ref unknown data id
+            if (getNode(input) == null) { // invalid expression ref unknown data id
                 throw IllegalArgumentException("ref $input is unknown")
             }
         }
