@@ -2,6 +2,8 @@ package infra.db.mongo
 
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Filters.eq
+import com.mongodb.client.model.Filters.`in`
+import com.mongodb.client.model.ReplaceOptions
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toSet
@@ -18,7 +20,9 @@ object MongoNodeRepository : NodeRepository {
         val id = queryNodeDOByExpression(node.expression)?.id ?: ObjectId()
         val save = translator.toMongo(node, id)
         runBlocking {
-            collection.insertOne(save)
+            collection.replaceOne(
+                eq("_${NodeDO::id.name}", id), save, ReplaceOptions().upsert(true)
+            )
         }
         return node
     }
@@ -32,7 +36,7 @@ object MongoNodeRepository : NodeRepository {
     override fun queryByInput(id: DataId): Set<Node> {
         return runBlocking {
             collection.find<NodeDO>(
-                Filters.`in`(Expression::inputs.name, id)
+                `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", id.str)
             ).map { translator.toModel(it) }.toSet()
         }
     }
@@ -40,9 +44,21 @@ object MongoNodeRepository : NodeRepository {
     override fun queryByOutput(id: DataId): Node? {
         return runBlocking {
             collection.find<NodeDO>(
-                eq(Expression::outputs.name, id)
+                `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str)
             ).map { translator.toModel(it) }.firstOrNull()
         }
+    }
+
+    override fun queryByFunc(funcId: FuncId): Set<Node> {
+        return runBlocking {
+            collection.find<NodeDO>(
+                eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", funcId)
+            ).map { translator.toModel(it) }.toSet()
+        }
+    }
+
+    override fun queryIdByOutput(id: DataId): Node.Id? {
+        return queryByOutput(id)?.id
     }
 
     private fun queryNodeDOByExpression(expression: Expression): NodeDO? {
@@ -53,20 +69,14 @@ object MongoNodeRepository : NodeRepository {
             }
             return runBlocking {
                 collection.find<NodeDO>(
-                    eq(Expression::outputs.name, edo.outputs)
+                    eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", edo.outputs)
                 ).firstOrNull()
             }
         } else {
             return runBlocking {
                 collection.find<NodeDO>(
                     Filters.and(
-                        listOf(
-                            eq(Expression::inputs.name, edo.inputs),
-                            eq(Expression::funcId.name, edo.funcId),
-                            eq(Expression::shapeRule.name, edo.shapeRule),
-                            eq(Expression::alignmentRule.name, edo.alignmentRule),
-                            eq(Expression::arguments.name, edo.arguments)
-                        )
+                        eq(NodeDO::expression.name, edo)
                     )
                 ).firstOrNull()
             }
