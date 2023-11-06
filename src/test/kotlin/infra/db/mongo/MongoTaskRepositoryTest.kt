@@ -19,7 +19,7 @@ class MongoTaskRepositoryTest {
             id = "123456789", expression = Expression(
                 inputs = listOf(DataId("open_test"), DataId("close_test")),
                 outputs = listOf(DataId("en_node_mongo_repo_test")),
-                funcId = "add_test",
+                funcId = FuncId("add_test"),
                 shapeRule = Expression.ShapeRule(1, 1),
                 alignmentRule = Expression.AlignmentRule(mapOf(DataId("open_test") to 1, DataId("close_test") to 1)),
                 arguments = mapOf("const" to Argument("1", "int"))
@@ -48,7 +48,7 @@ class MongoTaskRepositoryTest {
     fun delete() {
         mongoTaskRepository.delete(task.id)
 
-        val  ret = mongoTaskRepository.get(task.id)
+        val ret = mongoTaskRepository.get(task.id)
         assertNull(ret)
     }
 

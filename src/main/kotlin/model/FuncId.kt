@@ -2,4 +2,10 @@ package model
 
 import kotlinx.serialization.Serializable
 
-typealias FuncId = String
+@JvmInline
+@Serializable
+value class FuncId(val value: String) {
+    companion object {
+        val Noop = FuncId("")
+    }
+}

@@ -57,10 +57,6 @@ object MongoNodeRepository : NodeRepository {
         }
     }
 
-    override fun queryIdByOutput(id: DataId): Node.Id? {
-        return queryByOutput(id)?.id
-    }
-
     private fun queryNodeDOByExpression(expression: Expression): NodeDO? {
         val edo = translator.toMongo(expression)
         if (expression.isRoot()) {

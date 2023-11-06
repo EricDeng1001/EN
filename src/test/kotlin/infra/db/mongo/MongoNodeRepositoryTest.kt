@@ -23,7 +23,7 @@ class MongoNodeRepositoryTest {
             expression = Expression(
                 inputs = listOf(DataId("open_test"), DataId("close_test")),
                 outputs = listOf(DataId("en_node_mongo_repo_test")),
-                funcId = "add_test",
+                funcId = FuncId("add_test"),
                 shapeRule = Expression.ShapeRule(1, 1),
                 alignmentRule = Expression.AlignmentRule(mapOf(DataId("open_test") to 1, DataId("close_test") to 1)),
                 arguments = mapOf("const" to Argument("1", "int"))
@@ -63,15 +63,10 @@ class MongoNodeRepositoryTest {
 
     @Test
     fun queryByFunc() {
-        val ret = mongoNodeRepository.queryByFunc(funcId = "add_test")
+        val ret = mongoNodeRepository.queryByFunc(funcId = FuncId("add_test"))
         assertEquals(1, ret.size)
         assertEquals(node, ret.first())
     }
 
-    @Test
-    fun queryIdByOutput() {
-        val ret = mongoNodeRepository.queryIdByOutput(id = DataId("en_node_mongo_repo_test"))
-        assertEquals(node.id, ret)
-    }
 
 }

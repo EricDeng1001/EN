@@ -47,7 +47,7 @@ object MongoNodeTranslator {
         return NodeDO.ExpressionDO(
             expression.inputs.map { it.str },
             expression.outputs.map { it.str },
-            expression.funcId,
+            expression.funcId.value,
             toMongo(expression.shapeRule),
             toMongo(expression.alignmentRule),
             expression.arguments.map { (k, v) -> k to toMongo(v) }.toMap()
@@ -85,7 +85,7 @@ object MongoNodeTranslator {
         return Expression(
             expression.inputs.map { DataId(it) },
             expression.outputs.map { DataId(it) },
-            expression.funcId,
+            FuncId(expression.funcId),
             toModel(expression.shapeRule),
             toModel(expression.alignmentRule),
             expression.arguments.map { (k, v) -> k to toModel(v) }.toMap()

@@ -43,10 +43,10 @@ abstract class ExpressionNetwork(
 
     suspend fun run(id: DataId) {
         val node = getNode(id) ?: return
-        if (node.expression.inputs.isNotEmpty()) {
-            tryRunExpressionNode(node)
-        } else {
+        if (node.expression.isRoot()) {
             runRootNode(node)
+        } else {
+            tryRunExpressionNode(node)
         }
     }
 
@@ -195,6 +195,13 @@ abstract class ExpressionNetwork(
     suspend fun add(expression: Expression): List<DataId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
         if (queryByExpression != null) return queryByExpression.expression.outputs
+
+        for (input in expression.inputs) {
+            if (nodeRepository.queryByOutput(input) == null) { // invalid expression ref unknown data id
+                throw IllegalArgumentException("ref $input is unknown")
+            }
+        }
+
         val result = ArrayList<DataId>()
         for (output in expression.outputs) {
             result.add(DataId(genId()))

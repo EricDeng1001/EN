@@ -7,6 +7,4 @@ interface NodeRepository {
     fun queryByOutput(id: DataId): Node?
     fun queryByFunc(funcId: FuncId): Set<Node>
 
-    fun queryIdByOutput(id: DataId): Node.Id?
-
 }
