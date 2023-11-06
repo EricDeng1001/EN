@@ -7,6 +7,7 @@ import kotlin.collections.HashSet
 import kotlin.concurrent.timerTask
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 
 class MockNodeRepo : NodeRepository {
@@ -30,8 +31,9 @@ class MockNodeRepo : NodeRepository {
     }
 
     override fun queryByExpression(expression: Expression): Node? {
-        expression.outputs = emptyList() // output should not be considered
-        return expressionMap[expression]
+        val queryExpression = expression.copy()
+        queryExpression.outputs = emptyList() // output should not be considered
+        return expressionMap[queryExpression]
     }
 
     override fun queryByInput(id: DataId): Set<Node> = inputMap[id] ?: emptySet()
@@ -88,8 +90,8 @@ class MockExecutor : Executor {
 }
 
 class ExpressionNetworkTest(
-    val nodeRepository: NodeRepository,
-    val taskRepository: TaskRepository, val dataManager: DataManager, val executor: Executor
+    val nodeRepository: MockNodeRepo,
+    val taskRepository: MockTaskRepo, val dataManager: MockDataManager, val executor: MockExecutor
 ) : ExpressionNetwork(nodeRepository, taskRepository, dataManager, executor) {
 
 }
@@ -109,10 +111,6 @@ object TestCases {
             MockDataManager(),
             MockExecutor()
         )
-        runBlocking {
-            e.add(Expression.makeRoot(d1))
-            e.add(Expression.makeRoot(d2))
-        }
         return e
     }
 
@@ -120,7 +118,11 @@ object TestCases {
     fun testAddExpression() {
         val en = setUp()
         runBlocking {
-            val genIds = en.add(
+            en.add(Expression.makeRoot(d1))
+            en.add(Expression.makeRoot(d2))
+            assertNotNull(en.nodeRepository.queryByOutput(d1))
+            assertNotNull(en.nodeRepository.queryByOutput(d2))
+            var genIds = en.add(
                 Expression(
                     inputs = listOf(d1, d2),
                     outputs = listOf(p1),
@@ -130,7 +132,27 @@ object TestCases {
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
+            for (id in genIds) {
+                assertNotNull(en.nodeRepository.queryByOutput(id))
+            }
+            genIds = en.add(
+                Expression(
+                    inputs = genIds,
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            for (id in genIds) {
+                assertNotNull(en.nodeRepository.queryByOutput(id))
+            }
         }
+    }
+
+    @Test
+    fun testRunSpread() {
 
     }
 }

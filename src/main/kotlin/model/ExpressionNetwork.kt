@@ -193,6 +193,14 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun add(expression: Expression): List<DataId> {
+        if (expression.isRoot()) {
+            return saveRoot(expression)
+        }
+
+        return saveExpression(expression)
+    }
+
+    private suspend fun ExpressionNetwork.saveExpression(expression: Expression): List<DataId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
         if (queryByExpression != null) return queryByExpression.expression.outputs
 
@@ -217,6 +225,21 @@ abstract class ExpressionNetwork(
         )
         nodeRepository.save(node)
         return result
+    }
+
+    private fun saveRoot(expression: Expression): List<DataId> {
+        if (nodeRepository.queryByOutput(expression.outputs[0]) == null) {
+            val node = Node(
+                effectivePtr = Pointer.ZERO,
+                expectedPtr = Pointer.ZERO,
+                expression = expression,
+                valid = true,
+                resetPtr = false,
+                isRunning = false
+            )
+            nodeRepository.save(node)
+        }
+        return listOf(expression.outputs[0])
     }
 
     private fun genId() = UUID.randomUUID().toString()
