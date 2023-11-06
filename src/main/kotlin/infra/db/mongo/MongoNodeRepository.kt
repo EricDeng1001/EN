@@ -52,7 +52,7 @@ object MongoNodeRepository : NodeRepository {
     override fun queryByFunc(funcId: FuncId): Set<Node> {
         return runBlocking {
             collection.find<NodeDO>(
-                eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", funcId)
+                eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", funcId.value)
             ).map { translator.toModel(it) }.toSet()
         }
     }
