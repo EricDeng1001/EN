@@ -72,7 +72,13 @@ object MongoNodeRepository : NodeRepository {
             return runBlocking {
                 collection.find<NodeDO>(
                     Filters.and(
-                        eq(NodeDO::expression.name, edo)
+                        listOf(
+                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", edo.inputs),
+                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", edo.funcId),
+                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::shapeRule.name}", edo.shapeRule),
+                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::alignmentRule.name}", edo.alignmentRule),
+                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::arguments.name}", edo.arguments)
+                        )
                     )
                 ).firstOrNull()
             }
