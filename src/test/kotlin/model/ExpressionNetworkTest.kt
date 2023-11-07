@@ -4,6 +4,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
 import kotlin.concurrent.timerTask
@@ -20,19 +21,21 @@ class MockNodeRepo : NodeRepository {
     val outputMap: MutableMap<DataId, Node> = ConcurrentHashMap()
 
     override fun save(node: Node): Node {
-        idMap[node.id] = node
-        funcMap.computeIfAbsent(node.expression.funcId) { HashSet() }.add(node)
-        node.expression.inputs.forEach {
-            inputMap.computeIfAbsent(it) { HashSet() }.add(node)
+        val nodeCopy = node.copy()
+        idMap[nodeCopy.id] = nodeCopy
+        funcMap.computeIfAbsent(nodeCopy.expression.funcId) { CopyOnWriteArraySet() }
+            .add(nodeCopy) // fix ConcurrentModificationException when updateFuncId
+        nodeCopy.expression.inputs.forEach {
+            inputMap.computeIfAbsent(it) { CopyOnWriteArraySet() }.add(nodeCopy) // ConcurrentModificationException
         }
-        node.expression.outputs.forEach {
-            outputMap[it] = node
+        nodeCopy.expression.outputs.forEach {
+            outputMap[it] = nodeCopy
         }
-        val expression = node.expression
+        val expression = nodeCopy.expression
         val queryExpression = expression.copy()
         queryExpression.outputs = emptyList()
-        expressionMap[queryExpression] = node
-        return node
+        expressionMap[queryExpression] = nodeCopy
+        return nodeCopy
     }
 
     override fun queryByExpression(expression: Expression): Node? {
@@ -53,7 +56,8 @@ class MockTaskRepo : TaskRepository {
     val idMap: MutableMap<TaskId, Task> = ConcurrentHashMap()
 
     override fun save(task: Task) {
-        idMap[task.id] = task
+        val taskCopy = task.copy()
+        idMap[taskCopy.id] = taskCopy
     }
 
     override fun get(id: TaskId): Task? = idMap[id]
@@ -306,5 +310,68 @@ object TestCases {
         }
     }
 
+    @Test
+    fun testUpdateFunc() {
+        val en = setUp()
+        runBlocking {
+            en.add(Expression.makeRoot(d1))
+            en.add(Expression.makeRoot(d2))
+            val exp1 = en.add(
+                Expression(
+                    inputs = listOf(d1, d2),
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            val exp2 = en.add(
+                Expression(
+                    inputs = exp1,
+                    outputs = listOf(p1),
+                    f2,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            val exp3 = en.add(
+                Expression(
+                    inputs = exp2,
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+
+            en.dataManager.ptr = Pointer(10) // mock data update
+
+            en.run(d1)
+            en.run(d2)
+            delay(150)
+            assertEquals(Pointer(10), en.nodeRepository.queryByOutput(exp1[0])!!.effectivePtr)
+
+            en.updateFunc(f1)
+            // exp1运行完毕，有效指针为0
+            assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(exp1[0])!!.effectivePtr)
+
+            // exp2正在运行，有效指针为0
+            assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(exp2[0])!!.effectivePtr)
+
+            // exp3没有运行，有效指针为0
+            assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(exp3[0])!!.effectivePtr)
+
+            // 等所有传播完毕
+            delay(300)
+            assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(exp1[0])!!.effectivePtr)
+
+            assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(exp2[0])!!.effectivePtr)
+
+            assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(exp3[0])!!.effectivePtr)
+        }
+    }
 }
 

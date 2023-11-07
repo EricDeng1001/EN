@@ -106,10 +106,8 @@ abstract class ExpressionNetwork(
     // end 1
     suspend fun succeedRun(id: TaskId) {
         val task = taskRepository.get(id) ?: return
-        // doesn't relly matter if we load from db or not
         val node = getNode(task.expression.outputs[0])!!
         val mutex = locks[node.id]!!
-        // mutex could be empty when updateFunc enters first and during locked, a run start. this way no lock will preserve
         mutex.lock()
         node.isRunning = false
         if (!node.resetPtr) { // a success run

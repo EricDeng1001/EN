@@ -10,8 +10,6 @@ data class NodeDO(
     val valid: Boolean,
     val effectivePtr: Int,
     val expectedPtr: Int,
-    var isRunning: Boolean,
-    var resetPtr: Boolean,
     val expression: ExpressionDO
 ) {
     data class ExpressionDO(
@@ -60,8 +58,6 @@ object MongoNodeTranslator {
             node.valid,
             node.effectivePtr.value,
             node.expectedPtr.value,
-            node.isRunning,
-            node.resetPtr,
             toMongo(node.expression)
         )
     }
@@ -97,9 +93,9 @@ object MongoNodeTranslator {
             node.valid,
             Pointer(node.effectivePtr),
             Pointer(node.expectedPtr),
-            node.isRunning,
-            node.resetPtr,
-            toModel(node.expression)
+            isRunning = false,
+            resetPtr = false,
+            expression = toModel(node.expression)
         )
     }
 }
