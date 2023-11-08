@@ -373,5 +373,72 @@ object TestCases {
             assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(exp3[0])!!.effectivePtr)
         }
     }
+
+    @Test
+    fun testFailedRun() {
+        val en = setUp()
+        runBlocking {
+            en.add(Expression.makeRoot(d1))
+            en.add(Expression.makeRoot(d2))
+            val exp1 = en.add(
+                Expression(
+                    inputs = listOf(d1, d2),
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            val exp2 = en.add(
+                Expression(
+                    inputs = exp1,
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            val exp3 = en.add(
+                Expression(
+                    inputs = exp2,
+                    outputs = listOf(p1),
+                    f1,
+                    shapeRule = Expression.ShapeRule(1, 1),
+                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+                )
+            )
+            en.dataManager.ptr = Pointer(10)
+            en.executor.isSuccess = true
+            en.run(d1)
+            en.run(d2)
+            for (id in exp1) {
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+            }
+            delay(150)
+            for (id in exp1) {
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.effectivePtr)
+            }
+
+            en.executor.isSuccess = false // 模拟exp1执行成功, exp2执行失败
+            for (id in exp2) {
+                assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+            }
+            delay(150)
+            for (id in exp2) {
+                assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(id)!!.effectivePtr)
+                assertEquals(false, en.nodeRepository.queryByOutput(id)!!.valid)
+            }
+
+            delay(150)
+            for (id in exp3) {
+                assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(id)!!.expectedPtr)
+                assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(id)!!.effectivePtr)
+                assertEquals(false, en.nodeRepository.queryByOutput(id)!!.valid)
+            }
+        }
+    }
 }
 
