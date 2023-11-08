@@ -9,6 +9,7 @@ import io.ktor.server.routing.*
 import model.DataId
 import model.Expression
 import model.FuncId
+import model.TaskId
 
 fun Route.routes() {
     post("/run") {
@@ -27,5 +28,15 @@ fun Route.routes() {
         val funcId = call.receive<FuncId>()
         MongoExpressionNetwork.updateFunc(funcId)
         call.respond(HttpStatusCode.OK)
+    }
+
+    post("/succeed_run") {
+        val taskId = call.receive<TaskId>()
+        MongoExpressionNetwork.succeedRun(taskId)
+    }
+
+    post("/failed_run") {
+        val taskId = call.receive<TaskId>()
+        MongoExpressionNetwork.failedRun(taskId)
     }
 }
