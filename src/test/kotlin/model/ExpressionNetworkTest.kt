@@ -22,6 +22,8 @@ class MockNodeRepo : NodeRepository {
 
     override fun save(node: Node): Node {
         val nodeCopy = node.copy()
+        nodeCopy.resetPtr = false // db does not mem these two
+        nodeCopy.isRunning = false
         idMap[nodeCopy.id] = nodeCopy
         funcMap.computeIfAbsent(nodeCopy.expression.funcId) { CopyOnWriteArraySet() }
             .add(nodeCopy) // fix ConcurrentModificationException when updateFuncId
