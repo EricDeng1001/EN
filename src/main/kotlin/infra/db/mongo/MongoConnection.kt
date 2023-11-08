@@ -2,6 +2,7 @@ package infra.db.mongo
 
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
+import com.charleskorn.kaml.YamlNamingStrategy
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.serialization.Serializable
@@ -16,7 +17,12 @@ object MongoConnection {
         private set
 
     init {
-        val yaml = Yaml(configuration = YamlConfiguration(strictMode = false))
+        val yaml = Yaml(
+            configuration = YamlConfiguration(
+                strictMode = false, yamlNamingStrategy =
+                YamlNamingStrategy.KebabCase
+            )
+        )
         val configYaml = File("mongo-config.yaml").readText()
         val configFile = yaml.decodeFromString<ConfigFile>(configYaml)
         client = MongoClient.create(configFile.url)
