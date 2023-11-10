@@ -1,5 +1,6 @@
 package infra.db.mongo
 
+import kotlinx.coroutines.runBlocking
 import model.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -20,8 +21,7 @@ class MongoTaskRepositoryTest {
                 inputs = listOf(DataId("open_test"), DataId("close_test")),
                 outputs = listOf(DataId("en_node_mongo_repo_test")),
                 funcId = FuncId("add_test"),
-                shapeRule = Expression.ShapeRule(1, 1),
-                alignmentRule = Expression.AlignmentRule(mapOf(DataId("open_test") to 1, DataId("close_test") to 1)),
+                dataflow = "",
                 arguments = mapOf("const" to Argument("1", "int"))
             )
         )
@@ -35,21 +35,29 @@ class MongoTaskRepositoryTest {
 
     @Test
     fun save() {
-        mongoTaskRepository.save(task)
+        runBlocking {
+            mongoTaskRepository.save(task)
+        }
     }
 
     @Test
     fun get() {
-        val ret = mongoTaskRepository.get(task.id)
-        assertEquals(task, ret)
+        runBlocking {
+            val ret = mongoTaskRepository.get(task.id)
+            assertEquals(task, ret)
+
+        }
     }
 
     @Test
     fun delete() {
-        mongoTaskRepository.delete(task.id)
+        runBlocking {
 
-        val ret = mongoTaskRepository.get(task.id)
-        assertNull(ret)
+            mongoTaskRepository.delete(task.id)
+
+            val ret = mongoTaskRepository.get(task.id)
+            assertNull(ret)
+        }
     }
 
 }

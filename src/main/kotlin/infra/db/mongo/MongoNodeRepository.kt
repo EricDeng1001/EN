@@ -30,7 +30,6 @@ object MongoNodeRepository : NodeRepository {
         return translator.toModel(nodeDO)
     }
 
-
     override suspend fun queryByInput(id: DataId): Set<Node> {
         return collection.find<NodeDO>(
             `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", id.str)

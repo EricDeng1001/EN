@@ -19,15 +19,11 @@ data class NodeDO(
         val dataflow: String,
         val arguments: Map<String, ArgumentDO>
     ) {
-        data class ShapeRuleDO(val m: Int, val n: Int)
-        data class AlignmentRuleDO(val offsets: Map<String, Int>)
         data class ArgumentDO(val value: String, val type: String)
     }
 }
 
-
 object MongoNodeTranslator {
-
 
     fun toMongo(argument: Argument): NodeDO.ExpressionDO.ArgumentDO {
         return NodeDO.ExpressionDO.ArgumentDO(argument.value, argument.type)

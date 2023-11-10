@@ -8,6 +8,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import model.*
 import org.junit.jupiter.api.AfterEach
@@ -27,9 +28,8 @@ class HttpExecutorTest {
             inputs = listOf(DataId("open"), DataId("close")),
             outputs = listOf(DataId("output")),
             funcId = FuncId("func1"),
-            shapeRule = Expression.ShapeRule(1, 1),
-            alignmentRule = Expression.AlignmentRule(mapOf(Pair(DataId("open"), 0), Pair(DataId("close"), 0))),
-            arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
+            dataflow = "",
+            arguments = mapOf("arg1" to Argument(type = "float", value = "10"))
         ), Pointer.ZERO, Pointer(10), "xxx"
     )
     private val runResponseBody = RunResponseBody("xxx", true)
@@ -69,12 +69,16 @@ class HttpExecutorTest {
 
     @Test
     fun run() {
-        HttpExecutor.run(runRequestBody.expression, runRequestBody.from, runRequestBody.to, runRequestBody.withId)
+        runBlocking {
+            HttpExecutor.run(runRequestBody.expression, runRequestBody.from, runRequestBody.to, runRequestBody.withId)
+        }
     }
 
     @Test
     fun tryCancel() {
-        HttpExecutor.tryCancel(tryCancelResponseBody.id)
+        runBlocking {
+            HttpExecutor.tryCancel(tryCancelResponseBody.id)
+        }
     }
 
 }

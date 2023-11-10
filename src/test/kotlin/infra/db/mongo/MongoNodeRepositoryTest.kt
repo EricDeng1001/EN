@@ -1,5 +1,6 @@
 package infra.db.mongo
 
+import kotlinx.coroutines.runBlocking
 import model.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -24,8 +25,7 @@ class MongoNodeRepositoryTest {
                 inputs = listOf(DataId("open_test"), DataId("close_test")),
                 outputs = listOf(DataId("en_node_mongo_repo_test")),
                 funcId = FuncId("add_test"),
-                shapeRule = Expression.ShapeRule(1, 1),
-                alignmentRule = Expression.AlignmentRule(mapOf(DataId("open_test") to 1, DataId("close_test") to 1)),
+                dataflow = "",
                 arguments = mapOf("const" to Argument("1", "int"))
             ),
         )
@@ -38,35 +38,44 @@ class MongoNodeRepositoryTest {
 
     @Test
     fun save() {
-        val ret = mongoNodeRepository.save(node)
-        assertEquals(node, ret)
+        runBlocking {
+            val ret = mongoNodeRepository.save(node)
+            assertEquals(node, ret)
+        }
     }
 
     @Test
     fun queryByExpression() {
-        val ret = mongoNodeRepository.queryByExpression(expression = node.expression)
-        assertEquals(node, ret)
+        runBlocking {
+            val ret = mongoNodeRepository.queryByExpression(expression = node.expression)
+            assertEquals(node, ret)
+        }
     }
 
     @Test
     fun queryByInput() {
-        val ret = mongoNodeRepository.queryByInput(id = DataId("open_test"))
-        assertEquals(1, ret.size)
-        assertEquals(node, ret.first())
+        runBlocking {
+            val ret = mongoNodeRepository.queryByInput(id = DataId("open_test"))
+            assertEquals(1, ret.size)
+            assertEquals(node, ret.first())
+        }
     }
 
     @Test
     fun queryByOutput() {
-        val ret = mongoNodeRepository.queryByOutput(id = DataId("en_node_mongo_repo_test"))
-        assertEquals(node, ret)
+        runBlocking {
+            val ret = mongoNodeRepository.queryByOutput(id = DataId("en_node_mongo_repo_test"))
+            assertEquals(node, ret)
+        }
     }
 
     @Test
     fun queryByFunc() {
-        val ret = mongoNodeRepository.queryByFunc(funcId = FuncId("add_test"))
-        assertEquals(1, ret.size)
-        assertEquals(node, ret.first())
+        runBlocking {
+            val ret = mongoNodeRepository.queryByFunc(funcId = FuncId("add_test"))
+            assertEquals(1, ret.size)
+            assertEquals(node, ret.first())
+        }
     }
-
 
 }
