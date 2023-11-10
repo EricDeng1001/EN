@@ -64,11 +64,7 @@ object MongoNodeRepository : NodeRepository {
                     listOf(
                         eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", edo.inputs),
                         eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", edo.funcId),
-                        eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::shapeRule.name}", edo.shapeRule),
-                        eq(
-                            "${NodeDO::expression.name}.${NodeDO.ExpressionDO::alignmentRule.name}",
-                            edo.alignmentRule
-                        ),
+                        eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::dataflow.name}", edo.dataflow),
                         eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::arguments.name}", edo.arguments)
                     )
                 )

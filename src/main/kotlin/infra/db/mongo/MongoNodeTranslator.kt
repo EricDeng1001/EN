@@ -16,8 +16,7 @@ data class NodeDO(
         val inputs: List<String>,
         val outputs: List<String>,
         val funcId: String,
-        val shapeRule: ShapeRuleDO,
-        val alignmentRule: AlignmentRuleDO,
+        val dataflow: String,
         val arguments: Map<String, ArgumentDO>
     ) {
         data class ShapeRuleDO(val m: Int, val n: Int)
@@ -26,20 +25,9 @@ data class NodeDO(
     }
 }
 
-fun Expression.ShapeRule.toMongo(): NodeDO.ExpressionDO.ShapeRuleDO {
-    return NodeDO.ExpressionDO.ShapeRuleDO(m, n)
-}
 
 object MongoNodeTranslator {
-    fun toMongo(shapeRule: Expression.ShapeRule): NodeDO.ExpressionDO.ShapeRuleDO {
-        return NodeDO.ExpressionDO.ShapeRuleDO(shapeRule.m, shapeRule.n)
-    }
 
-    fun toMongo(alignmentRule: Expression.AlignmentRule): NodeDO.ExpressionDO.AlignmentRuleDO {
-        return NodeDO.ExpressionDO.AlignmentRuleDO(
-            alignmentRule.offsets.map { (k, v) -> k.str to v }.toMap()
-        )
-    }
 
     fun toMongo(argument: Argument): NodeDO.ExpressionDO.ArgumentDO {
         return NodeDO.ExpressionDO.ArgumentDO(argument.value, argument.type)
@@ -50,8 +38,7 @@ object MongoNodeTranslator {
             expression.inputs.map { it.str },
             expression.outputs.map { it.str },
             expression.funcId.value,
-            toMongo(expression.shapeRule),
-            toMongo(expression.alignmentRule),
+            dataflow = expression.dataflow,
             expression.arguments.map { (k, v) -> k to toMongo(v) }.toMap()
         )
     }
@@ -66,16 +53,6 @@ object MongoNodeTranslator {
         )
     }
 
-    fun toModel(shapeRule: NodeDO.ExpressionDO.ShapeRuleDO): Expression.ShapeRule {
-        return Expression.ShapeRule(shapeRule.m, shapeRule.n)
-    }
-
-    fun toModel(alignmentRule: NodeDO.ExpressionDO.AlignmentRuleDO): Expression.AlignmentRule {
-        return Expression.AlignmentRule(
-            alignmentRule.offsets.map { (k, v) -> DataId(k) to v }.toMap()
-        )
-    }
-
     fun toModel(argument: NodeDO.ExpressionDO.ArgumentDO): Argument {
         return Argument(argument.value, argument.type)
     }
@@ -86,8 +63,7 @@ object MongoNodeTranslator {
             expression.inputs.map { DataId(it) },
             expression.outputs.map { DataId(it) },
             FuncId(expression.funcId),
-            toModel(expression.shapeRule),
-            toModel(expression.alignmentRule),
+            dataflow = expression.dataflow,
             expression.arguments.map { (k, v) -> k to toModel(v) }.toMap()
         )
     }
