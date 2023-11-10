@@ -26,6 +26,10 @@ data class NodeDO(
     }
 }
 
+fun Expression.ShapeRule.toMongo(): NodeDO.ExpressionDO.ShapeRuleDO {
+    return NodeDO.ExpressionDO.ShapeRuleDO(m, n)
+}
+
 object MongoNodeTranslator {
     fun toMongo(shapeRule: Expression.ShapeRule): NodeDO.ExpressionDO.ShapeRuleDO {
         return NodeDO.ExpressionDO.ShapeRuleDO(shapeRule.m, shapeRule.n)

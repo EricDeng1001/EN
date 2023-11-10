@@ -1,7 +1,7 @@
 package model
 
 interface Executor {
-    fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId)
+    suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId)
 
-    fun tryCancel(id: TaskId)
+    suspend fun tryCancel(id: TaskId)
 }

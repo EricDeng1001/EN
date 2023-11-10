@@ -44,21 +44,19 @@ object HttpDataManager : DataManager {
         }
     }
 
-    override fun findLastPtr(id: DataId): Pointer {
-        return runBlocking {
-            val url = URLBuilder(
-                protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
-                host = config.host,
-                port = config.port,
-            ).apply {
-                path(config.url.findLastPtr.replace("{id}", id.str))
-            }.toString()
+    override suspend fun findLastPtr(id: DataId): Pointer {
+        val url = URLBuilder(
+            protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
+            host = config.host,
+            port = config.port,
+        ).apply {
+            path(config.url.findLastPtr.replace("{id}", id.str))
+        }.toString()
 
-            val response = client.get(url)
-            if (response.status != HttpStatusCode.OK) {
-                throw Exception("findLastPtr failed: ${response.status}")
-            }
-            Pointer(response.body<Int>())
+        val response = client.get(url)
+        if (response.status != HttpStatusCode.OK) {
+            throw Exception("findLastPtr failed: ${response.status}")
         }
+        return Pointer(response.body<Int>())
     }
 }

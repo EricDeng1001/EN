@@ -56,47 +56,43 @@ object HttpExecutor : Executor {
         }
     }
 
-    override fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId) {
-        runBlocking {
-            val url = URLBuilder(
-                protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
-                host = config.host,
-                port = config.port,
-            ).apply {
-                path(config.url.run)
-            }.toString()
+    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId) {
+        val url = URLBuilder(
+            protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
+            host = config.host,
+            port = config.port,
+        ).apply {
+            path(config.url.run)
+        }.toString()
 
-            val response = client.post(url) {
-                contentType(ContentType.Application.Json)
-                setBody(
-                    RunRequestBody(
-                        expression = expression, from = from, to = to, withId = withId
-                    )
+        val response = client.post(url) {
+            contentType(ContentType.Application.Json)
+            setBody(
+                RunRequestBody(
+                    expression = expression, from = from, to = to, withId = withId
                 )
-            }
-
-            if (response.status != HttpStatusCode.OK) {
-                throw Exception("run failed: ${response.status}")
-            }
-            val body = response.body<RunResponseBody>()
+            )
         }
+
+        if (response.status != HttpStatusCode.OK) {
+            throw Exception("run failed: ${response.status}")
+        }
+//        val body = response.body<RunResponseBody>()
     }
 
-    override fun tryCancel(id: TaskId) {
-        runBlocking {
-            val url = URLBuilder(
-                protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
-                host = config.host,
-                port = config.port,
-            ).apply {
-                path(config.url.tryCancel.replace("{id}", id))
-            }.build().toString()
+    override suspend fun tryCancel(id: TaskId) {
+        val url = URLBuilder(
+            protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
+            host = config.host,
+            port = config.port,
+        ).apply {
+            path(config.url.tryCancel.replace("{id}", id))
+        }.build().toString()
 
-            val response = client.put(url)
-            if (response.status != HttpStatusCode.OK) {
-                throw Exception("tryCancel failed: ${response.status}")
-            }
-            val body = response.body<TryCancelResponseBody>()
+        val response = client.put(url)
+        if (response.status != HttpStatusCode.OK) {
+            throw Exception("tryCancel failed: ${response.status}")
         }
+        val body = response.body<TryCancelResponseBody>()
     }
 }

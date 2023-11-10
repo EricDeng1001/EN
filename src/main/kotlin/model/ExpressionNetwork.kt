@@ -234,7 +234,7 @@ abstract class ExpressionNetwork(
         return result
     }
 
-    private fun saveRoot(expression: Expression): List<DataId> {
+    private suspend fun saveRoot(expression: Expression): List<DataId> {
         if (nodeRepository.queryByOutput(expression.outputs[0]) == null) {
             val node = Node(
                 effectivePtr = Pointer.ZERO,

@@ -1,5 +1,5 @@
 package model
 
 interface DataManager {
-    fun findLastPtr(id: DataId): Pointer
+    suspend fun findLastPtr(id: DataId): Pointer
 }

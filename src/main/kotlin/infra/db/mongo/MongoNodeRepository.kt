@@ -16,72 +16,63 @@ object MongoNodeRepository : NodeRepository {
     private val collection = MongoConnection.defaultDatabase.getCollection<NodeDO>("nodes")
     private val translator = MongoNodeTranslator
 
-    override fun save(node: Node): Node {
+    override suspend fun save(node: Node): Node {
         val id = queryNodeDOByExpression(node.expression)?.id ?: ObjectId()
         val save = translator.toMongo(node, id)
-        runBlocking {
-            collection.replaceOne(
-                eq("_${NodeDO::id.name}", id), save, ReplaceOptions().upsert(true)
-            )
-        }
+        collection.replaceOne(
+            eq("_${NodeDO::id.name}", id), save, ReplaceOptions().upsert(true)
+        )
         return node
     }
 
-    override fun queryByExpression(expression: Expression): Node? {
+    override suspend fun queryByExpression(expression: Expression): Node? {
         val nodeDO = queryNodeDOByExpression(expression) ?: return null
         return translator.toModel(nodeDO)
     }
 
 
-    override fun queryByInput(id: DataId): Set<Node> {
-        return runBlocking {
-            collection.find<NodeDO>(
-                `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", id.str)
-            ).map { translator.toModel(it) }.toSet()
-        }
+    override suspend fun queryByInput(id: DataId): Set<Node> {
+        return collection.find<NodeDO>(
+            `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", id.str)
+        ).map { translator.toModel(it) }.toSet()
     }
 
-    override fun queryByOutput(id: DataId): Node? {
-        return runBlocking {
-            collection.find<NodeDO>(
-                `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str)
-            ).map { translator.toModel(it) }.firstOrNull()
-        }
+    override suspend fun queryByOutput(id: DataId): Node? {
+        return collection.find<NodeDO>(
+            `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str)
+        ).map { translator.toModel(it) }.firstOrNull()
     }
 
-    override fun queryByFunc(funcId: FuncId): Set<Node> {
-        return runBlocking {
-            collection.find<NodeDO>(
-                eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", funcId.value)
-            ).map { translator.toModel(it) }.toSet()
-        }
+    override suspend fun queryByFunc(funcId: FuncId): Set<Node> {
+        return collection.find<NodeDO>(
+            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", funcId.value)
+        ).map { translator.toModel(it) }.toSet()
     }
 
-    private fun queryNodeDOByExpression(expression: Expression): NodeDO? {
+    private suspend fun queryNodeDOByExpression(expression: Expression): NodeDO? {
         val edo = translator.toMongo(expression)
         if (expression.isRoot()) {
             if (edo.outputs.size != 1) {
                 throw Exception("Root node should have only one output")
             }
-            return runBlocking {
-                collection.find<NodeDO>(
-                    eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", edo.outputs)
-                ).firstOrNull()
-            }
+            return collection.find<NodeDO>(
+                eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", edo.outputs)
+            ).firstOrNull()
         } else {
-            return runBlocking {
-                collection.find<NodeDO>(
-                    Filters.and(
-                        listOf(
-                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", edo.inputs),
-                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", edo.funcId),
-                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::shapeRule.name}", edo.shapeRule),
-                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::alignmentRule.name}", edo.alignmentRule),
-                            eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::arguments.name}", edo.arguments)
-                        )
+            return collection.find<NodeDO>(
+                Filters.and(
+                    listOf(
+                        eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", edo.inputs),
+                        eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", edo.funcId),
+                        eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::shapeRule.name}", edo.shapeRule),
+                        eq(
+                            "${NodeDO::expression.name}.${NodeDO.ExpressionDO::alignmentRule.name}",
+                            edo.alignmentRule
+                        ),
+                        eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::arguments.name}", edo.arguments)
                     )
-                ).firstOrNull()
-            }
+                )
+            ).firstOrNull()
         }
 
     }

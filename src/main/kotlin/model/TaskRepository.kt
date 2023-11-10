@@ -1,9 +1,9 @@
 package model
 
 interface TaskRepository {
-    fun save(task: Task)
+    suspend fun save(task: Task)
 
-    fun get(id: TaskId): Task?
+    suspend fun get(id: TaskId): Task?
 
-    fun delete(id: TaskId)
+    suspend fun delete(id: TaskId)
 }

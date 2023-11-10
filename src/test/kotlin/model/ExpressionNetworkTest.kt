@@ -6,7 +6,6 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.collections.ArrayList
-import kotlin.collections.HashSet
 import kotlin.concurrent.timerTask
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,7 +19,7 @@ class MockNodeRepo : NodeRepository {
     val inputMap: MutableMap<DataId, MutableSet<Node>> = ConcurrentHashMap()
     val outputMap: MutableMap<DataId, Node> = ConcurrentHashMap()
 
-    override fun save(node: Node): Node {
+    override suspend fun save(node: Node): Node {
         val nodeCopy = node.copy()
         nodeCopy.resetPtr = false // db does not mem these two
         nodeCopy.isRunning = false
@@ -40,30 +39,30 @@ class MockNodeRepo : NodeRepository {
         return nodeCopy
     }
 
-    override fun queryByExpression(expression: Expression): Node? {
+    override suspend fun queryByExpression(expression: Expression): Node? {
         val queryExpression = expression.copy()
         queryExpression.outputs = emptyList() // output should not be considered
         return expressionMap[queryExpression]
     }
 
-    override fun queryByInput(id: DataId): Set<Node> = inputMap[id] ?: emptySet()
+    override suspend fun queryByInput(id: DataId): Set<Node> = inputMap[id] ?: emptySet()
 
-    override fun queryByOutput(id: DataId): Node? = outputMap[id]
+    override suspend fun queryByOutput(id: DataId): Node? = outputMap[id]
 
-    override fun queryByFunc(funcId: FuncId): Set<Node> = funcMap[funcId] ?: emptySet()
+    override suspend fun queryByFunc(funcId: FuncId): Set<Node> = funcMap[funcId] ?: emptySet()
 
 }
 
 class MockTaskRepo : TaskRepository {
     val idMap: MutableMap<TaskId, Task> = ConcurrentHashMap()
 
-    override fun save(task: Task) {
+    override suspend fun save(task: Task) {
         val taskCopy = task.copy()
         idMap[taskCopy.id] = taskCopy
     }
 
-    override fun get(id: TaskId): Task? = idMap[id]
-    override fun delete(id: TaskId) {
+    override suspend fun get(id: TaskId): Task? = idMap[id]
+    override suspend fun delete(id: TaskId) {
         idMap.remove(id)
     }
 
@@ -72,7 +71,7 @@ class MockTaskRepo : TaskRepository {
 class MockDataManager : DataManager {
     var ptr: Pointer = Pointer.ZERO
 
-    override fun findLastPtr(id: DataId): Pointer {
+    override suspend fun findLastPtr(id: DataId): Pointer {
         return ptr
     }
 
@@ -82,7 +81,7 @@ class MockExecutor : Executor {
     lateinit var callback: ExpressionNetwork
     var isSuccess: Boolean = true
 
-    override fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId) {
+    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId) {
         Timer().schedule(timerTask {
             runBlocking {
                 if (isSuccess) {
@@ -94,7 +93,7 @@ class MockExecutor : Executor {
         }, 100) // 主要是为了隔离线程
     }
 
-    override fun tryCancel(id: TaskId) {
+    override suspend fun tryCancel(id: TaskId) {
 
     }
 
