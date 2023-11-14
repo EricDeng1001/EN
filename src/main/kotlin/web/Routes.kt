@@ -24,6 +24,12 @@ fun Route.routes() {
         call.respond(ids)
     }
 
+    post("/addRoot") {
+        val id = call.receive<DataId>()
+        ExpressionNetworkImpl.add(Expression.makeRoot(id))
+        call.respond(HttpStatusCode.OK)
+    }
+
     post("/update_func") {
         val funcId = call.receive<FuncId>()
         ExpressionNetworkImpl.updateFunc(funcId)
