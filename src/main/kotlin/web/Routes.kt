@@ -22,7 +22,7 @@ fun Route.routes() {
     }
 
     post("/addRoot") {
-        val id = call.receive<Symbol>()
+        val id = call.receive<DataId>()
         ExpressionNetworkImpl.add(Expression.makeRoot(id))
         call.respond(HttpStatusCode.OK)
     }
