@@ -30,7 +30,7 @@ class HttpExecutorTest {
             funcId = FuncId("func1"),
             dataflow = "",
             arguments = mapOf("arg1" to Argument(type = "float", value = "10"))
-        ), Pointer.ZERO, Pointer(10), "xxx"
+        ), 0, 10, "xxx"
     )
     private val runResponseBody = RunResponseBody("xxx", true)
 
@@ -70,7 +70,8 @@ class HttpExecutorTest {
     @Test
     fun run() {
         runBlocking {
-            HttpExecutor.run(runRequestBody.expression, runRequestBody.from, runRequestBody.to, runRequestBody.withId)
+            HttpExecutor.run(runRequestBody.expression, Pointer(runRequestBody.from), Pointer(runRequestBody.to),
+                runRequestBody.withId)
         }
     }
 
