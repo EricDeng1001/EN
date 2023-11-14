@@ -6,10 +6,7 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import model.DataId
-import model.Expression
-import model.FuncId
-import model.TaskId
+import model.*
 
 fun Route.routes() {
     post("/run") {
@@ -25,7 +22,7 @@ fun Route.routes() {
     }
 
     post("/addRoot") {
-        val id = call.receive<DataId>()
+        val id = call.receive<Symbol>()
         ExpressionNetworkImpl.add(Expression.makeRoot(id))
         call.respond(HttpStatusCode.OK)
     }
