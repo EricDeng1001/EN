@@ -8,6 +8,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import model.DataId
 import model.Pointer
@@ -49,8 +50,10 @@ class HttpDataManagerTest {
 
     @Test
     fun findLastPtr() {
-        val pointer = HttpDataManager.findLastPtr(DataId("xxx"))
-        assertEquals(Pointer(10), pointer)
+        runBlocking {
+            val pointer = HttpDataManager.findLastPtr(DataId("xxx"))
+            assertEquals(Pointer(10), pointer)
+        }
     }
 
 }

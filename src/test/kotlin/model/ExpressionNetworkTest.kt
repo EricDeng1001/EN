@@ -144,8 +144,7 @@ object TestCases {
                     inputs = listOf(d1, d2),
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -159,8 +158,7 @@ object TestCases {
                     inputs = genIds,
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -175,8 +173,7 @@ object TestCases {
                     inputs = listOf(d1, d3),
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -198,8 +195,7 @@ object TestCases {
                 inputs = listOf(d1, d2),
                 outputs = listOf(p1),
                 f1,
-                shapeRule = Expression.ShapeRule(1, 1),
-                alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                dataflow = "",
                 arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
             )
             val ids1 = en.add(expr)
@@ -239,8 +235,7 @@ object TestCases {
                     inputs = listOf(d1, d2),
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -249,8 +244,7 @@ object TestCases {
                     inputs = exp1,
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -288,8 +282,7 @@ object TestCases {
                     inputs = exp3Inputs,
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -322,8 +315,7 @@ object TestCases {
                     inputs = listOf(d1, d2),
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -332,8 +324,7 @@ object TestCases {
                     inputs = exp1,
                     outputs = listOf(p1),
                     f2,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -342,8 +333,7 @@ object TestCases {
                     inputs = exp2,
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -386,8 +376,7 @@ object TestCases {
                     inputs = listOf(d1, d2),
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -396,8 +385,7 @@ object TestCases {
                     inputs = exp1,
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
@@ -406,8 +394,7 @@ object TestCases {
                     inputs = exp2,
                     outputs = listOf(p1),
                     f1,
-                    shapeRule = Expression.ShapeRule(1, 1),
-                    alignmentRule = Expression.AlignmentRule(mapOf(Pair(d1, 0), Pair(d2, 0))),
+                    dataflow = "",
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
