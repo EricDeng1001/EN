@@ -14,9 +14,15 @@ group = "dvm"
 version = "1.0-SNAPSHOT"
 
 repositories {
-    mavenCentral()
+    maven {
+        url = uri("https://maven.aliyun.com/repository/public")
+        artifactUrls("https://repo.maven.apache.org/maven2/")
+    }
+    maven {
+        url = uri("https://maven.aliyun.com/repository/gradle-plugin")
+        artifactUrls("https://plugins.gradle.org/m2/")
+    }
 }
-
 
 dependencies {
     val ktorVersion: String by project
