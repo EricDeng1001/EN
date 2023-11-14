@@ -7,5 +7,7 @@ FROM eclipse-temurin:17
 EXPOSE 8080:8080
 RUN mkdir /app
 COPY --from=build /home/gradle/src/build/libs/*.jar /app/en.jar
+COPY --from=build /home/gradle/src/*.yaml /app/
+WORKDIR /app
 ENTRYPOINT ["java","-jar","/app/en.jar"]
 
