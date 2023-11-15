@@ -12,16 +12,7 @@ Content-Type: application/json
     "data_2"
   ],
   "funcId": "func_id",
-  "shapeRule": {
-    "m": 242,
-    "n": 1
-  },
-  "alignmentRule": {
-    "offsets": {
-      "data_1": 0,
-      "data_2": 0
-    }
-  },
+  "dataflow":  "",
   "arguments": {
     "x": {
       "type": "float",
