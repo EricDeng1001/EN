@@ -18,4 +18,8 @@ data class Node(
 
     val id: Id
         get() = Id(expression.outputs[0])
+
+    fun ids(): Iterable<DataId> {
+        return expression.outputs
+    }
 }

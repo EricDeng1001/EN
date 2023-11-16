@@ -9,7 +9,8 @@ abstract class ExpressionNetwork(
     private val nodeRepository: NodeRepository,
     private val taskRepository: TaskRepository,
     private val dataManager: DataManager,
-    private val executor: Executor
+    private val executor: Executor,
+    private val messageQueue: MessageQueue
 ) {
     private val loadedNodes: MutableMap<Node.Id, Node> = ConcurrentHashMap()
     private val locks: MutableMap<Node.Id, Mutex> = ConcurrentHashMap()
@@ -61,6 +62,9 @@ abstract class ExpressionNetwork(
         // end 3
         if (!node.valid) {
             endRun(node)
+            for (id in node.ids()) {
+                messageQueue.pushRunFailed(id)
+            }
             return
         }
         val mutex =
@@ -78,7 +82,13 @@ abstract class ExpressionNetwork(
                 taskRepository.save(task)
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 node.isRunning = true
+                for (id in node.ids()) {
+                    messageQueue.pushRunning(id)
+                }
             } else { // somehow the node is not suppose to run, end this run
+                for (id in node.ids()) {
+                    messageQueue.pushRunFinish(id)
+                }
                 endRun(node)
             }
         } finally {
@@ -124,6 +134,9 @@ abstract class ExpressionNetwork(
         }
         endRun(node)
         taskRepository.delete(id)
+        for (id in node.ids()) {
+            messageQueue.pushRunFinish(id)
+        }
     }
 
     private fun endRun(node: Node) {
@@ -135,6 +148,9 @@ abstract class ExpressionNetwork(
         val task = taskRepository.get(id) ?: return
         taskRepository.delete(id)
         val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
+        for (id in node.ids()) {
+            messageQueue.pushRunFailed(id)
+        }
         markInvalid(node)
     }
 
