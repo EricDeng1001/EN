@@ -6,12 +6,25 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.Serializable
 import model.*
 
+@Serializable
+data class RunRootRequest(
+    val dataId: String,
+    val effectivePtr: Int
+)
+
 fun Route.routes() {
-    post("/run") {
-        val dataId = call.receive<DataId>()
-        ExpressionNetworkImpl.run(dataId)
+    post("/runRoot") {
+        val req = call.receive<RunRootRequest>()
+        ExpressionNetworkImpl.runRoot(DataId(req.dataId), Pointer(req.effectivePtr))
+        call.respond(HttpStatusCode.OK)
+    }
+
+    post("runExpression") {
+        val req = call.receive<DataId>()
+        ExpressionNetworkImpl.runExpression(req)
         call.respond(HttpStatusCode.OK)
     }
 

@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap
 abstract class ExpressionNetwork(
     private val nodeRepository: NodeRepository,
     private val taskRepository: TaskRepository,
-    private val dataManager: DataManager,
     private val executor: Executor
 ) {
     private val loadedNodes: MutableMap<Node.Id, Node> = ConcurrentHashMap()
@@ -41,17 +40,22 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun run(id: DataId) {
+    suspend fun runRoot(id: DataId, effectivePtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
-            runRootNode(node)
-        } else {
+            runRootNode(node, effectivePtr)
+        }
+    }
+
+    suspend fun runExpression(id: DataId) {
+        val node = getNode(id) ?: return
+        if (node.expression.isRoot().not()) {
             tryRunExpressionNode(node)
         }
     }
 
-    private suspend fun runRootNode(node: Node) {
-        node.effectivePtr = dataManager.findLastPtr(node.expression.outputs[0])
+    private suspend fun runRootNode(node: Node, effectivePtr: Pointer) {
+        node.effectivePtr = effectivePtr
         node.expectedPtr = node.effectivePtr
         nodeRepository.save(node)
         updateDownstream(node)
