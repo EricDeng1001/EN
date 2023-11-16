@@ -68,15 +68,6 @@ class MockTaskRepo : TaskRepository {
 
 }
 
-class MockDataManager : DataManager {
-    var ptr: Pointer = Pointer.ZERO
-
-    override suspend fun findLastPtr(id: DataId): Pointer {
-        return ptr
-    }
-
-}
-
 class MockExecutor : Executor {
     lateinit var callback: ExpressionNetwork
     var isSuccess: Boolean = true
@@ -101,8 +92,9 @@ class MockExecutor : Executor {
 
 class ExpressionNetworkTest(
     val nodeRepository: MockNodeRepo,
-    val taskRepository: MockTaskRepo, val dataManager: MockDataManager, val executor: MockExecutor
-) : ExpressionNetwork(nodeRepository, taskRepository, dataManager, executor) {
+    val taskRepository: MockTaskRepo,
+    val executor: MockExecutor
+) : ExpressionNetwork(nodeRepository, taskRepository, executor) {
 
 }
 
@@ -119,7 +111,6 @@ object TestCases {
         val e = ExpressionNetworkTest(
             MockNodeRepo(),
             MockTaskRepo(),
-            MockDataManager(),
             MockExecutor()
         )
         e.executor.callback = e
@@ -210,14 +201,12 @@ object TestCases {
         runBlocking {
             en.add(Expression.makeRoot(d1))
             en.add(Expression.makeRoot(d2))
-            en.dataManager.ptr = Pointer(10) // mock data update
-            en.run(d1)
-            en.run(d2)
+            en.runRoot(d1, Pointer(10))
+            en.runRoot(d2, Pointer(10))
             assertEquals(Pointer(10), en.nodeRepository.queryByOutput(d1)!!.effectivePtr)
             assertEquals(Pointer(10), en.nodeRepository.queryByOutput(d2)!!.effectivePtr)
-            en.dataManager.ptr = Pointer(42) // mock data update
-            en.run(d1)
-            en.run(d2)
+            en.runRoot(d1, Pointer(42))
+            en.runRoot(d2, Pointer(42))
             assertEquals(Pointer(42), en.nodeRepository.queryByOutput(d1)!!.effectivePtr)
             assertEquals(Pointer(42), en.nodeRepository.queryByOutput(d2)!!.effectivePtr)
         }
@@ -248,16 +237,15 @@ object TestCases {
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
-            en.dataManager.ptr = Pointer(10) // mock data update
             en.executor.isSuccess = true // mock succeed exec
-            en.run(d1)
+            en.runRoot(d1, Pointer(10))
             // we don't need wait for exec because this case shouldn't cause any run in executor
             for (id in exp1) {
                 // 计算应该没有传播下来，因为只有一个上游更新了
                 assertEquals(Pointer(0), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
                 assertEquals(Pointer(0), en.nodeRepository.queryByOutput(id)!!.effectivePtr)
             }
-            en.run(d2)
+            en.runRoot(d2, Pointer(10))
             // 计算应该已经传播下来，其中expected ptr是立刻传播, effective ptr会在计算完成后传播
             for (id in exp1) {
                 assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
@@ -291,7 +279,7 @@ object TestCases {
                 assertEquals(Pointer(0), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
             }
             // 更新d3
-            en.run(d3)
+            en.runRoot(d3, Pointer(10))
             for (id in exp3) {
                 // exp3 应该更新expectedPtr
                 assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
@@ -338,10 +326,8 @@ object TestCases {
                 )
             )
 
-            en.dataManager.ptr = Pointer(10) // mock data update
-
-            en.run(d1)
-            en.run(d2)
+            en.runRoot(d1, Pointer(10))
+            en.runRoot(d2, Pointer(10))
             delay(150)
             assertEquals(Pointer(10), en.nodeRepository.queryByOutput(exp1[0])!!.effectivePtr)
 
@@ -398,10 +384,9 @@ object TestCases {
                     arguments = mapOf(Pair("arg1", Argument(type = "float", value = "10")))
                 )
             )
-            en.dataManager.ptr = Pointer(10)
             en.executor.isSuccess = true
-            en.run(d1)
-            en.run(d2)
+            en.runRoot(d1, Pointer(10))
+            en.runRoot(d2, Pointer(10))
             for (id in exp1) {
                 assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.expectedPtr)
             }
