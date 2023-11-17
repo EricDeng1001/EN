@@ -155,6 +155,7 @@ abstract class ExpressionNetwork(
         for (id in node.ids()) {
             messageQueue.pushRunFailed(id)
         }
+        endRun(node)
         markInvalid(node)
     }
 
@@ -162,7 +163,6 @@ abstract class ExpressionNetwork(
     private suspend fun markInvalid(node: Node) {
         val mutex = locks[node.id]!!
         mutex.lock()
-        endRun(node)
         node.valid = false
         node.effectivePtr = Pointer.ZERO
         nodeRepository.save(node)
