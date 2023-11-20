@@ -1,7 +1,6 @@
 package model
 
 import kotlinx.serialization.Serializable
-import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 
@@ -9,7 +8,7 @@ import kotlin.collections.HashMap
 data class GraphView(val nodes: List<GraphNode>, val edges: List<GraphEdge>) {
 
     @Serializable
-    data class GraphNode(val id: Id, val type: String, val name: String?) {
+    data class GraphNode(val id: Id, val type: String) {
 
         @JvmInline
         @Serializable
@@ -32,22 +31,21 @@ data class Graph(val expressions: List<Expression>) {
             for (input in ex.inputs) {
                 nodes.computeIfAbsent(input.str) {
                     GraphView.GraphNode(
-                        GraphView.GraphNode.Id(genId()), "data", input
-                            .str
+                        GraphView.GraphNode.Id(input.str), "data"
                     )
                 }
             }
             for (output in ex.outputs) {
                 nodes.computeIfAbsent(output.str) {
                     GraphView.GraphNode(
-                        GraphView.GraphNode.Id(genId()), "data", output.str
+                        GraphView.GraphNode.Id(output.str), "data"
                     )
                 }
             }
 
             nodes.computeIfAbsent(ex.funcId.value) {
                 GraphView.GraphNode(
-                    GraphView.GraphNode.Id(genId()), "operator", ex.funcId.value
+                    GraphView.GraphNode.Id(ex.funcId.value), "operator"
                 )
             }
         }
@@ -68,5 +66,4 @@ data class Graph(val expressions: List<Expression>) {
         return graphView
     }
 
-    private fun genId() = UUID.randomUUID().toString().replace("-", "")
 }
