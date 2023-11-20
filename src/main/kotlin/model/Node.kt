@@ -1,5 +1,6 @@
 package model
 
+import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
 typealias NodeId = Node.Id
@@ -10,7 +11,8 @@ data class Node(
     var expectedPtr: Pointer,
     var isRunning: Boolean,
     var resetPtr: Boolean,
-    val expression: Expression
+    val expression: Expression,
+    var lastUpdateTime: Instant = Instant.DISTANT_PAST
 ) {
     @JvmInline
     value class Id(val id: DataId)
