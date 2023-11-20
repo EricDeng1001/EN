@@ -41,6 +41,15 @@ abstract class ExpressionNetwork(
         }
     }
 
+    suspend fun buildGraph(ids: List<DataId>): Graph{
+        val expressions: MutableList<Expression> = ArrayList()
+        for (id in ids) {
+            val node = getNode(id) ?: continue
+            expressions.add(node.expression)
+        }
+        return Graph(expressions)
+    }
+
     suspend fun runRoot(id: DataId, effectivePtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
@@ -83,9 +92,10 @@ abstract class ExpressionNetwork(
                     id = genId(),
                     expression = node.expression
                 )
-                taskRepository.save(task)
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                // 有可能提交失败，提交成功再保存
                 node.isRunning = true
+                taskRepository.save(task)
                 for (id in node.ids()) {
                     messageQueue.pushRunning(id)
                 }
@@ -269,7 +279,7 @@ abstract class ExpressionNetwork(
         return listOf(expression.outputs[0])
     }
 
-    private fun genId() = UUID.randomUUID().toString()
+    private fun genId() = "__" + UUID.randomUUID().toString().replace("-", "")
 
 
 }

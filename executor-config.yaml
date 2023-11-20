@@ -1,6 +1,6 @@
 http: true
-host: "127.0.0.1"
-port: 7788
+host: "172.17.100.66"
+port: 50051
 url:
-  run: "/run"
+  run: "/executor/expr"
   try-cancel: "/cancel/{id}"

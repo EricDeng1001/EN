@@ -24,8 +24,17 @@ data class RunRootRequest(
 
 private val logger = LoggerFactory.getLogger("Routes")
 
+@Serializable
+data class RunResponse(val taskId: String)
 
 fun Route.httpRoutes() {
+
+    get("/graph") {
+        val req = call.receive<List<DataId>>()
+        val graph = ExpressionNetworkImpl.buildGraph(req)
+        call.respond(graph.view())
+    }
+
     post("/runRoot") {
         val req = call.receive<RunRootRequest>()
         ExpressionNetworkImpl.runRoot(DataId(req.dataId), Pointer(req.effectivePtr))
@@ -57,13 +66,15 @@ fun Route.httpRoutes() {
     }
 
     post("/succeed_run") {
-        val taskId = call.receive<TaskId>()
-        ExpressionNetworkImpl.succeedRun(taskId)
+        val res = call.receive<RunResponse>()
+        ExpressionNetworkImpl.succeedRun(res.taskId)
+        call.respond(res)
     }
 
     post("/failed_run") {
-        val taskId = call.receive<TaskId>()
-        ExpressionNetworkImpl.failedRun(taskId)
+        val res = call.receive<RunResponse>()
+        ExpressionNetworkImpl.failedRun(res.taskId)
+        call.respond(res)
     }
 }
 

@@ -90,11 +90,24 @@ class MockExecutor : Executor {
 
 }
 
+class MockMessageQueue: MessageQueue{
+    override suspend fun pushRunning(id: DataId) {
+    }
+
+    override suspend fun pushRunFailed(id: DataId) {
+    }
+
+    override suspend fun pushRunFinish(id: DataId) {
+    }
+
+}
+
 class ExpressionNetworkTest(
     val nodeRepository: MockNodeRepo,
     val taskRepository: MockTaskRepo,
-    val executor: MockExecutor
-) : ExpressionNetwork(nodeRepository, taskRepository, executor) {
+    val executor: MockExecutor,
+    val messageQueue: MessageQueue
+) : ExpressionNetwork(nodeRepository, taskRepository, executor, messageQueue) {
 
 }
 
@@ -111,7 +124,8 @@ object TestCases {
         val e = ExpressionNetworkTest(
             MockNodeRepo(),
             MockTaskRepo(),
-            MockExecutor()
+            MockExecutor(),
+            MockMessageQueue()
         )
         e.executor.callback = e
         return e
