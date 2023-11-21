@@ -30,9 +30,18 @@ data class RunResponse(val taskId: String)
 fun Route.httpRoutes() {
 
     get("/graph") {
-        val req = call.receive<List<DataId>>()
-        val graph = ExpressionNetworkImpl.buildGraph(req)
-        call.respond(graph.view())
+        try {
+            val ids: List<DataId> =
+                call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList() ?: return@get call.respond(
+                    HttpStatusCode.BadRequest
+                )
+            val graph = ExpressionNetworkImpl.buildGraph(ids)
+            call.respond(graph.view())
+        } catch (e: ContentTransformationException) {
+            call.respond(HttpStatusCode.BadRequest)
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.InternalServerError, "$e")
+        }
     }
 
     post("/runRoot") {

@@ -70,8 +70,8 @@ class HttpExecutorTest {
     @Test
     fun run() {
         runBlocking {
-            HttpExecutor.run(runRequestBody.expression, Pointer(runRequestBody.from), Pointer(runRequestBody.to),
-                runRequestBody.withId)
+            HttpExecutor.run(runRequestBody.expression, Pointer(runRequestBody.start), Pointer(runRequestBody.end),
+                runRequestBody.taskId)
         }
     }
 
