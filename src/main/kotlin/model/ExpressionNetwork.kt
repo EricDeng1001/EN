@@ -9,7 +9,8 @@ abstract class ExpressionNetwork(
     private val nodeRepository: NodeRepository,
     private val taskRepository: TaskRepository,
     private val executor: Executor,
-    private val messageQueue: MessageQueue
+    private val messageQueue: MessageQueue,
+    private val performanceService: PerformanceService
 ) {
     private val loadedNodes: MutableMap<Node.Id, Node> = ConcurrentHashMap()
     private val locks: MutableMap<Node.Id, Mutex> = ConcurrentHashMap()
@@ -147,6 +148,9 @@ abstract class ExpressionNetwork(
             mutex.unlock()
         }
         endRun(node)
+        for (output in node.expression.outputs) {
+            performanceService.calculate(output)
+        }
         taskRepository.delete(id)
         for (id in node.ids()) {
             messageQueue.pushRunFinish(id)
