@@ -74,7 +74,7 @@ object HttpExecutor : Executor {
         }
 
         if (response.status != HttpStatusCode.OK) {
-            throw Exception("run failed: ${response.status}")
+            throw Exception("run failed: ${response.status} -> ${response.body<String>()}")
         }
 //        val body = response.body<RunResponseBody>()
     }

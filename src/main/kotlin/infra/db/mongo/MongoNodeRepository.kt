@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.toSet
 import model.*
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
+import java.util.TreeMap
 
 data class NodeDO(
     @BsonId val id: ObjectId,
@@ -23,7 +24,7 @@ data class NodeDO(
         val outputs: List<String>,
         val funcId: String,
         val dataflow: String,
-        val arguments: Map<String, ArgumentDO>
+        val arguments: TreeMap<String, ArgumentDO>
     ) {
         data class ArgumentDO(val value: String, val type: String) {
             fun toModel(): Argument {
@@ -67,7 +68,7 @@ fun Expression.toMongo(): NodeDO.ExpressionDO {
         outputs.map { it.str },
         funcId.value,
         dataflow,
-        arguments.map { (k, v) -> k to v.toMongo() }.toMap()
+        arguments.map { (k, v) -> k to v.toMongo() }.toMap(TreeMap())
     )
 }
 

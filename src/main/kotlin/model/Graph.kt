@@ -16,7 +16,7 @@ data class GraphView(val nodes: List<GraphNode>, val edges: List<GraphEdge>) {
     }
 
     @Serializable
-    data class GraphEdge(val from: GraphNode.Id, val to: GraphNode.Id)
+    data class GraphEdge(val source: GraphNode.Id, val target: GraphNode.Id)
 }
 
 @Serializable

@@ -1,6 +1,8 @@
 package model
 
 import kotlinx.coroutines.sync.Mutex
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -12,6 +14,7 @@ abstract class ExpressionNetwork(
     private val messageQueue: MessageQueue,
     private val performanceService: PerformanceService
 ) {
+    private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
     private val loadedNodes: MutableMap<Node.Id, Node> = ConcurrentHashMap()
     private val locks: MutableMap<Node.Id, Mutex> = ConcurrentHashMap()
 
@@ -42,7 +45,7 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun buildGraph(ids: List<DataId>): Graph{
+    suspend fun buildGraph(ids: List<DataId>): Graph {
         val expressions: MutableList<Expression> = ArrayList()
         for (id in ids) {
             val node = getNode(id) ?: continue
@@ -148,9 +151,14 @@ abstract class ExpressionNetwork(
             mutex.unlock()
         }
         endRun(node)
-        for (output in node.expression.outputs) {
-            performanceService.calculate(output)
+        try {
+            for (output in node.expression.outputs) {
+                performanceService.calculate(output)
+            }
+        } catch (e: Exception) {
+            logger.error("calculate performance error: $e")
         }
+
         taskRepository.delete(id)
         for (id in node.ids()) {
             messageQueue.pushRunFinish(id)
