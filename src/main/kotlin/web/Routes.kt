@@ -44,13 +44,13 @@ fun Route.httpRoutes() {
         }
     }
 
-    post("/runRoot") {
+    post("/run/root") {
         val req = call.receive<RunRootRequest>()
         ExpressionNetworkImpl.runRoot(DataId(req.dataId), Pointer(req.effectivePtr))
         call.respond(HttpStatusCode.OK)
     }
 
-    post("runExpression") {
+    post("run/expression") {
         val req = call.receive<DataId>()
         ExpressionNetworkImpl.runExpression(req)
         call.respond(HttpStatusCode.OK)
@@ -62,7 +62,7 @@ fun Route.httpRoutes() {
         call.respond(ids)
     }
 
-    post("/addRoot") {
+    post("/add/root") {
         val id = call.receive<DataId>()
         ExpressionNetworkImpl.add(Expression.makeRoot(id))
         call.respond(HttpStatusCode.OK)
