@@ -104,11 +104,16 @@ class MockMQ: MessageQueue {
     }
 
 }
+class MockPerf: PerformanceService {
+    override suspend fun calculate(id: DataId) {
+    }
+
+}
 class ExpressionNetworkTest(
     val nodeRepository: MockNodeRepo,
     val taskRepository: MockTaskRepo,
     val executor: MockExecutor
-) : ExpressionNetwork(nodeRepository, taskRepository, executor, MockMQ()) {
+) : ExpressionNetwork(nodeRepository, taskRepository, executor, MockMQ(), MockPerf()) {
 
 }
 

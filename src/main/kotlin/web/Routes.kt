@@ -1,6 +1,6 @@
 package web
 
-import infra.db.mongo.ExpressionNetworkImpl
+import infra.ExpressionNetworkImpl
 import infra.messagequeue.WebSocketNotification
 import infra.messagequeue.registerConnection
 import infra.messagequeue.unregisterConnection

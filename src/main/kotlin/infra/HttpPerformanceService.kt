@@ -22,7 +22,7 @@ data class Url(val calculate: String)
 @Serializable
 data class PerformanceConfig(val http: Boolean, val host: String, val port: Int, val url: Url)
 
-object HttpPerformance : PerformanceService {
+object HttpPerformanceService : PerformanceService {
 
     private var config: PerformanceConfig
 
