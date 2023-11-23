@@ -54,6 +54,19 @@ abstract class ExpressionNetwork(
         return Graph(expressions)
     }
 
+    suspend fun queryExpressionsState(ids: List<DataId>): List<Pair<DataId, Boolean?>> {
+        val res: MutableList<Pair<DataId, Boolean?>> = mutableListOf()
+        for (id in ids) {
+            val node = getNode(id)
+            if (node == null) {
+                res.add(Pair(id, null))
+            } else {
+                res.add(Pair(id, node.expectedPtr > Pointer.ZERO))
+            }
+        }
+        return res
+    }
+
     suspend fun runRoot(id: DataId, effectivePtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {

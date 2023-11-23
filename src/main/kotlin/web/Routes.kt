@@ -44,6 +44,20 @@ fun Route.httpRoutes() {
         }
     }
 
+    get ("/expression/state"){
+        try {
+            val ids: List<DataId> =
+                call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList() ?: return@get call.respond(
+                    HttpStatusCode.BadRequest
+                )
+            call.respond(ExpressionNetworkImpl.queryExpressionsState(ids))
+        } catch (e: ContentTransformationException) {
+            call.respond(HttpStatusCode.BadRequest)
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.InternalServerError, "$e")
+        }
+    }
+
     post("/run/root") {
         val req = call.receive<RunRootRequest>()
         ExpressionNetworkImpl.runRoot(DataId(req.dataId), Pointer(req.effectivePtr))

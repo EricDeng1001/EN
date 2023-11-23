@@ -4,6 +4,7 @@ import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
 import com.charleskorn.kaml.YamlNamingStrategy
 import io.ktor.client.*
+import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
@@ -48,18 +49,13 @@ object HttpPerformanceService : PerformanceService {
             host = config.host,
             port = config.port,
         ).apply {
-            path(config.url.calculate)
+            path(config.url.calculate.replace("{id}", id.str))
         }.toString()
 
-        val response = client.post(url) {
-            contentType(ContentType.Application.Json)
-            setBody(
-                id
-            )
-        }
+        val response = client.post(url)
 
         if (response.status != HttpStatusCode.OK) {
-            throw Exception("run failed: ${response.status}")
+            throw Exception("run failed: ${response.status} -> ${response.body<String>()}")
         }
     }
 }

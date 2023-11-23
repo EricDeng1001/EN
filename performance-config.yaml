@@ -1,5 +1,5 @@
 http: true
 host: "127.0.0.1"
-port: 7799
+port: 50051
 url:
-  calculate: "/calculate"
+  calculate: "/perf/{id}"
