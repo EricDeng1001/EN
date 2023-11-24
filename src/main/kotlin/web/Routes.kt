@@ -27,6 +27,12 @@ private val logger = LoggerFactory.getLogger("Routes")
 @Serializable
 data class RunResponse(val taskId: String)
 
+@Serializable
+data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<DataId>? = emptySet())
+
+@Serializable
+data class ExpressionState(val id: DataId, val state: Boolean? = null)
+
 fun Route.httpRoutes() {
 
     get("/graph") {
@@ -44,13 +50,13 @@ fun Route.httpRoutes() {
         }
     }
 
-    get ("/expression/state"){
+    get("/expression/state") {
         try {
             val ids: List<DataId> =
                 call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList() ?: return@get call.respond(
                     HttpStatusCode.BadRequest
                 )
-            call.respond(ExpressionNetworkImpl.queryExpressionsState(ids))
+            call.respond(ExpressionNetworkImpl.queryExpressionsState(ids).map { ExpressionState(it.first, it.second) })
         } catch (e: ContentTransformationException) {
             call.respond(HttpStatusCode.BadRequest)
         } catch (e: Exception) {
@@ -108,7 +114,7 @@ fun Route.websocketRoutes() {
             for (frame in incoming) {
                 frame as? Frame.Text ?: continue
                 try {
-                    converter?.deserialize<Set<DataId>>(frame)?.let {
+                    converter?.deserialize<WebSocketRequest>(frame)?.let {
                         WebSocketNotification.registerConnection(thisConnection, it)
                     }
                 } catch (e: Exception) {

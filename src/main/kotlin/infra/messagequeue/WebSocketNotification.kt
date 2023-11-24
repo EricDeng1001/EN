@@ -6,7 +6,9 @@ import model.DataId
 import model.MessageQueue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import web.WebSocketRequest
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 
 @Serializable
 data class SendMessage(val id: DataId, val status: String);
@@ -15,7 +17,7 @@ object WebSocketNotification : MessageQueue {
 
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
 
-    val connections = ConcurrentHashMap<WebSocketServerSession, Set<DataId>>()
+    val connections = ConcurrentHashMap<WebSocketServerSession, CopyOnWriteArraySet<DataId>>()
     override suspend fun pushRunning(id: DataId) {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
@@ -53,8 +55,10 @@ object WebSocketNotification : MessageQueue {
     }
 }
 
-fun WebSocketNotification.registerConnection(session: WebSocketServerSession, dataIds: Set<DataId>) {
-    connections[session] = dataIds
+fun WebSocketNotification.registerConnection(session: WebSocketServerSession, request: WebSocketRequest) {
+    val subs = connections.computeIfAbsent(session) { CopyOnWriteArraySet() }
+    subs.addAll(request.sub ?: emptySet())
+    subs.removeAll((request.unsub ?: emptySet()).toSet())
 }
 
 fun WebSocketNotification.unregisterConnection(session: WebSocketServerSession) {

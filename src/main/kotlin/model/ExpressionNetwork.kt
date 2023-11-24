@@ -110,6 +110,7 @@ abstract class ExpressionNetwork(
                     expression = node.expression
                 )
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                logger.info("try to tun expression node: $node")
                 // 有可能提交失败，提交成功再保存
                 node.isRunning = true
                 taskRepository.save(task)
