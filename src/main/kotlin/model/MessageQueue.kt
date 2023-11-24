@@ -7,4 +7,6 @@ interface MessageQueue {
 
     suspend fun pushRunFinish(id: DataId)
 
+    suspend fun pushSystemFailed(id: DataId)
+
 }

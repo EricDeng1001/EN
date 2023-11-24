@@ -108,7 +108,7 @@ fun Route.httpRoutes() {
 }
 
 fun Route.websocketRoutes() {
-    webSocket("/ws") {
+    webSocket("/listen") {
         val thisConnection = this
         try {
             for (frame in incoming) {

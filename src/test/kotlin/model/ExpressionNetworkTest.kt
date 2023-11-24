@@ -103,6 +103,10 @@ class MockMQ: MessageQueue {
         return
     }
 
+    override suspend fun pushSystemFailed(id: DataId) {
+        TODO("Not yet implemented")
+    }
+
 }
 class MockPerf: PerformanceService {
     override suspend fun calculate(id: DataId) {

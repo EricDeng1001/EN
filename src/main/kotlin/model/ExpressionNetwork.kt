@@ -61,7 +61,7 @@ abstract class ExpressionNetwork(
             if (node == null) {
                 res.add(Pair(id, null))
             } else {
-                res.add(Pair(id, node.expectedPtr > Pointer.ZERO))
+                res.add(Pair(id, node.effectivePtr > Pointer.ZERO))
             }
         }
         return res
@@ -110,10 +110,10 @@ abstract class ExpressionNetwork(
                     expression = node.expression
                 )
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
-                logger.info("try to tun expression node: $node")
                 // 有可能提交失败，提交成功再保存
                 node.isRunning = true
                 taskRepository.save(task)
+                logger.info("try to tun expression node: $task")
                 for (id in node.ids()) {
                     messageQueue.pushRunning(id)
                 }
@@ -123,6 +123,12 @@ abstract class ExpressionNetwork(
                 }
                 endRun(node)
             }
+        } catch (e: Exception) {
+            logger.error("try run expression node error: $e")
+            for (id in node.ids()) {
+                messageQueue.pushSystemFailed(id)
+            }
+            endRun(node)
         } finally {
             mutex.unlock()
         }
@@ -147,6 +153,7 @@ abstract class ExpressionNetwork(
 
     // end 1
     suspend fun succeedRun(id: TaskId) {
+        logger.info("succeed run: $id")
         val task = taskRepository.get(id) ?: return
         val node = getNode(task.expression.outputs[0])!!
         val mutex = locks[node.id]!!
@@ -185,6 +192,7 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun failedRun(id: TaskId) {
+        logger.info("failed run: $id")
         val task = taskRepository.get(id) ?: return
         taskRepository.delete(id)
         val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
@@ -197,12 +205,9 @@ abstract class ExpressionNetwork(
 
     // end 2
     private suspend fun markInvalid(node: Node) {
-        val mutex = locks[node.id]!!
-        mutex.lock()
         node.valid = false
         node.effectivePtr = Pointer.ZERO
         nodeRepository.save(node)
-        mutex.unlock()
         for (dNode in loadDownstream(node.expression)) {
             markInvalid(dNode)
         }

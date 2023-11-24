@@ -53,6 +53,18 @@ object WebSocketNotification : MessageQueue {
             }
         }
     }
+
+    override suspend fun pushSystemFailed(id: DataId) {
+        connections.forEach { (session, dataIds) ->
+            if (dataIds.contains(id)) {
+                try {
+                    session.sendSerialized(SendMessage(id, "system-failed"))
+                } catch (e: Exception) {
+                    logger.error("Error sending system-failed message to client: $e")
+                }
+            }
+        }
+    }
 }
 
 fun WebSocketNotification.registerConnection(session: WebSocketServerSession, request: WebSocketRequest) {

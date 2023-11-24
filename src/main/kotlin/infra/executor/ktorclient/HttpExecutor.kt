@@ -52,6 +52,9 @@ object HttpExecutor : Executor {
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json(from = DefaultJson) { ignoreUnknownKeys = true })
+            engine {
+                requestTimeout = 0 // 0 to disable, or a millisecond value to fit your needs
+            }
         }
     }
 
