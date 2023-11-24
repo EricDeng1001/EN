@@ -6,6 +6,7 @@ import com.charleskorn.kaml.YamlNamingStrategy
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
@@ -40,9 +41,9 @@ object HttpPerformanceService : PerformanceService {
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json(from = DefaultJson) { ignoreUnknownKeys = true })
-            engine {
-                requestTimeout = 0 // 0 to disable, or a millisecond value to fit your needs
-            }
+        }
+        install(HttpTimeout) {
+            requestTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
         }
     }
 

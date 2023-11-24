@@ -46,7 +46,7 @@ object WebSocketNotification : MessageQueue {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
-                    session.sendSerialized(SendMessage(id, "finish"))
+                    session.sendSerialized(SendMessage(id, "finished"))
                 } catch (e: Exception) {
                     logger.error("Error sending finish message to client: $e")
                 }
