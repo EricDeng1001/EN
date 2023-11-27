@@ -106,8 +106,7 @@ abstract class ExpressionNetwork(
             }
             if (node.shouldRun()) {
                 val task = Task(
-                    id = genId(),
-                    expression = node.expression
+                    id = genId(), expression = node.expression
                 )
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 // 有可能提交失败，提交成功再保存
@@ -118,9 +117,6 @@ abstract class ExpressionNetwork(
                     messageQueue.pushRunning(id)
                 }
             } else { // somehow the node is not suppose to run, end this run
-                for (id in node.ids()) {
-                    messageQueue.pushRunFinish(id)
-                }
                 endRun(node)
             }
         } catch (e: Exception) {
