@@ -117,7 +117,6 @@ abstract class ExpressionNetwork(
                     messageQueue.pushRunning(id)
                 }
             } else { // somehow the node is not suppose to run, end this run
-                logger.info("node is not supposed to run: ${node.expression}")
                 endRun(node)
             }
         } catch (e: Exception) {
