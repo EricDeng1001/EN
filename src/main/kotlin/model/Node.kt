@@ -12,7 +12,8 @@ data class Node(
     var isRunning: Boolean,
     var resetPtr: Boolean,
     val expression: Expression,
-    var lastUpdateTime: Instant = Instant.DISTANT_PAST
+    var lastUpdateTime: Instant = Instant.DISTANT_PAST,
+    var isPerfCalculated: Boolean = false
 ) {
     @JvmInline
     value class Id(val id: DataId)

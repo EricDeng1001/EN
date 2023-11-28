@@ -32,8 +32,7 @@ abstract class ExpressionNetwork(
     private suspend fun saveToLoaded(node: Node): Node {
         var it = node
         val mutex = locks.computeIfAbsent(it.id) { Mutex() }
-        try {
-            mutex.lock()
+        mutex.withLock {
             val loadedNode = loadedNodes[it.id]
             if (loadedNode != null) {
                 it = loadedNode
@@ -41,8 +40,6 @@ abstract class ExpressionNetwork(
                 loadedNodes[it.id] = it
             }
             return it
-        } finally {
-            mutex.unlock()
         }
     }
 
@@ -157,32 +154,37 @@ abstract class ExpressionNetwork(
         val task = taskRepository.get(id) ?: return
         val node = getNode(task.expression.outputs[0])!!
         val mutex = locks[node.id]!!
-        mutex.lock()
-        node.isRunning = false
-        if (!node.resetPtr) { // a success run
-            try {
+        var reset: Boolean
+        mutex.withLock {
+            node.isRunning = false
+            reset = node.resetPtr
+            if (!reset) { // a success run
                 node.effectivePtr = node.expectedPtr
+
+                if (!node.isPerfCalculated) {
+                    try {
+                        for (output in node.expression.outputs) {
+                            performanceService.calculate(output)
+                        }
+                        node.isPerfCalculated = true
+                    } catch (e: Exception) {
+                        logger.error("calculate performance error: $e")
+                    }
+                }
+
                 nodeRepository.save(node)
-            } finally {
-                mutex.unlock()
             }
-            updateDownstream(node)
-        } else {
-            // should abort this run
-            mutex.unlock()
-        }
-        endRun(node)
-        try {
-            for (output in node.expression.outputs) {
-                performanceService.calculate(output)
-            }
-        } catch (e: Exception) {
-            logger.error("calculate performance error: $e")
         }
 
+        if (!reset) {
+            updateDownstream(node)
+        }
+
+        endRun(node)
+
         taskRepository.delete(id)
-        for (id in node.ids()) {
-            messageQueue.pushRunFinish(id)
+        for (output in node.ids()) {
+            messageQueue.pushRunFinish(output)
         }
     }
 
@@ -228,14 +230,14 @@ abstract class ExpressionNetwork(
 
     private suspend fun markNeedUpdate(node: Node) {
         val mutex = locks.computeIfAbsent(node.id) { Mutex() }
-        mutex.lock()
-        if (node.isRunning) {
-            node.resetPtr = true
+        mutex.withLock {
+            if (node.isRunning) {
+                node.resetPtr = true
+            }
+            node.effectivePtr = Pointer.ZERO
+            node.valid = true
+            nodeRepository.save(node)
         }
-        node.effectivePtr = Pointer.ZERO
-        node.valid = true
-        nodeRepository.save(node)
-        mutex.unlock()
 
         for (dNode in loadDownstream(node.expression)) {
             markNeedUpdate(dNode)

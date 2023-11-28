@@ -7,9 +7,11 @@ import com.mongodb.client.model.ReplaceOptions
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toSet
+import kotlinx.datetime.*
 import model.*
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
+import java.time.LocalDateTime
 import java.util.TreeMap
 
 data class NodeDO(
@@ -17,7 +19,9 @@ data class NodeDO(
     val valid: Boolean,
     val effectivePtr: Int,
     val expectedPtr: Int,
-    val expression: ExpressionDO
+    val expression: ExpressionDO,
+    val lastUpdateTime: LocalDateTime? = null,
+    val isPerfCalculated: Boolean? = null
 ) {
     data class ExpressionDO(
         val inputs: List<String>,
@@ -51,14 +55,23 @@ data class NodeDO(
             Pointer(expectedPtr),
             isRunning = false,
             resetPtr = false,
-            expression = expression.toModel()
+            expression = expression.toModel(),
+            lastUpdateTime = lastUpdateTime?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
+                ?: Instant.DISTANT_PAST,
+            isPerfCalculated = isPerfCalculated ?: false
         )
     }
 }
 
 fun Node.toMongo(id: ObjectId): NodeDO {
     return NodeDO(
-        id, valid, effectivePtr.value, expectedPtr.value, expression.toMongo()
+        id,
+        valid,
+        effectivePtr.value,
+        expectedPtr.value,
+        expression.toMongo(),
+        lastUpdateTime.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
+        isPerfCalculated
     )
 }
 
