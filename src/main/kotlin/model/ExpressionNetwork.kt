@@ -1,6 +1,7 @@
 package model
 
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -99,34 +100,37 @@ abstract class ExpressionNetwork(
         }
         val mutex =
             locks[node.id]!! // must exists, or the code is wrong, for tryRun should ways happens after get/load node
-        try {
-            mutex.lock()
+
+        mutex.withLock {
             if (node.isRunning) { // somehow double run, doesn't matter, we can safe ignore this
                 return
             }
-            if (node.shouldRun()) {
-                val task = Task(
-                    id = genId(), expression = node.expression
-                )
-                executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
-                // 有可能提交失败，提交成功再保存
-                node.isRunning = true
+
+            if (!node.shouldRun()) {
+                endRun(node)
+                return
+            }
+
+            val task = Task(
+                id = genId(), expression = node.expression
+            )
+
+            try {
                 taskRepository.save(task)
                 logger.info("try to tun expression node: $task")
+                executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                node.isRunning = true
                 for (id in node.ids()) {
                     messageQueue.pushRunning(id)
                 }
-            } else { // somehow the node is not suppose to run, end this run
+            } catch (e: Exception) {
+                logger.error("try to run expression node error: $e")
+                taskRepository.delete(task.id)
+                for (id in node.ids()) {
+                    messageQueue.pushSystemFailed(id)
+                }
                 endRun(node)
             }
-        } catch (e: Exception) {
-            logger.error("try run expression node error: $e")
-            for (id in node.ids()) {
-                messageQueue.pushSystemFailed(id)
-            }
-            endRun(node)
-        } finally {
-            mutex.unlock()
         }
     }
 
