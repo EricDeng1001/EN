@@ -44,9 +44,9 @@ fun Route.httpRoutes() {
             val graph = ExpressionNetworkImpl.buildGraph(ids)
             call.respond(graph.view())
         } catch (e: ContentTransformationException) {
-            call.respond(HttpStatusCode.BadRequest)
+            call.respond(HttpStatusCode.BadRequest, e.localizedMessage)
         } catch (e: Exception) {
-            call.respond(HttpStatusCode.InternalServerError, "$e")
+            call.respond(HttpStatusCode.InternalServerError, e.localizedMessage)
         }
     }
 
@@ -58,9 +58,9 @@ fun Route.httpRoutes() {
                 )
             call.respond(ExpressionNetworkImpl.queryExpressionsState(ids).map { ExpressionState(it.first, it.second) })
         } catch (e: ContentTransformationException) {
-            call.respond(HttpStatusCode.BadRequest)
+            call.respond(HttpStatusCode.BadRequest,  e.localizedMessage)
         } catch (e: Exception) {
-            call.respond(HttpStatusCode.InternalServerError, "$e")
+            call.respond(HttpStatusCode.InternalServerError,  e.localizedMessage)
         }
     }
 
