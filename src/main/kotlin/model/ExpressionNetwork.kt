@@ -72,6 +72,12 @@ abstract class ExpressionNetwork(
         }
     }
 
+    suspend fun markForceRunPerf(id: DataId) {
+        val node = getNode(id) ?: return
+        node.isPerfCalculated = false
+        nodeRepository.save(node)
+    }
+
     suspend fun runExpression(id: DataId) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot().not()) {
