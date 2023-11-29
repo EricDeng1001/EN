@@ -5,9 +5,16 @@ import kotlinx.serialization.Serializable
 typealias TimeLength = Int
 typealias ArgName = String
 
+enum class InputType {
+    DataId,
+    List
+}
+@Serializable
+class Input(val type: InputType, val ids: List<DataId>)
+
 @Serializable
 data class Expression(
-    val inputs: List<DataId>,
+    val inputs: List<Input>,
     var outputs: List<DataId>,
     val funcId: FuncId,
     val dataflow: String,

@@ -248,7 +248,9 @@ abstract class ExpressionNetwork(
     suspend fun loadUpstream(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.inputs) {
-            result.add(getNode(input) ?: continue)
+            for (id in input.ids) {
+                result.add(getNode(id) ?: continue)
+            }
         }
         return result
     }
@@ -270,13 +272,15 @@ abstract class ExpressionNetwork(
         return saveExpression(expression)
     }
 
-    private suspend fun ExpressionNetwork.saveExpression(expression: Expression): List<DataId> {
+    private suspend fun saveExpression(expression: Expression): List<DataId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
         if (queryByExpression != null) return queryByExpression.expression.outputs
 
         for (input in expression.inputs) {
-            if (getNode(input) == null) { // invalid expression ref unknown data id
-                throw IllegalArgumentException("ref $input is unknown")
+            for (id in input.ids) {
+                if (getNode(id) == null) { // invalid expression ref unknown data id
+                    throw IllegalArgumentException("ref $input is unknown")
+                }
             }
         }
 

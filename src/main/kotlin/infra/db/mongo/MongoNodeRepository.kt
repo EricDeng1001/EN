@@ -23,8 +23,21 @@ data class NodeDO(
     val lastUpdateTime: LocalDateTime? = null,
     val isPerfCalculated: Boolean? = null
 ) {
+    data class InputDO(
+        val type: String,
+        val ids: List<String>
+    ) {
+        fun toModel(): Input {
+            return Input(
+                type = InputType.valueOf(type),
+                ids = ids.map { DataId(it) }
+            )
+        }
+    }
+
     data class ExpressionDO(
-        val inputs: List<String>,
+        val inputs: List<InputDO>,
+        val inputsFlat: List<String>,
         val outputs: List<String>,
         val funcId: String,
         val dataflow: String,
@@ -38,7 +51,7 @@ data class NodeDO(
 
         fun toModel(): Expression {
             return Expression(
-                inputs.map { DataId(it) },
+                inputs.map { it.toModel() },
                 outputs.map { DataId(it) },
                 FuncId(funcId),
                 dataflow,
@@ -75,9 +88,17 @@ fun Node.toMongo(id: ObjectId): NodeDO {
     )
 }
 
+fun Input.toMongo(): NodeDO.InputDO {
+    return NodeDO.InputDO(
+        type = type.name,
+        ids = ids.map { it.str }
+    )
+}
+
 fun Expression.toMongo(): NodeDO.ExpressionDO {
     return NodeDO.ExpressionDO(
-        inputs.map { it.str },
+        inputs.map { it.toMongo() },
+        inputs.flatMap { it.toMongo().ids },
         outputs.map { it.str },
         funcId.value,
         dataflow,
@@ -110,7 +131,7 @@ object MongoNodeRepository : NodeRepository {
 
     override suspend fun queryByInput(id: DataId): Set<Node> {
         return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
-            `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", id.str)
+            `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", id.str)
         ).map { it.toModel() }.toSet()
     }
 
