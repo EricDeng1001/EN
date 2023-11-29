@@ -13,9 +13,12 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadPoolExecutor
 
 @Serializable
 data class RunRootRequest(
@@ -23,6 +26,8 @@ data class RunRootRequest(
 )
 
 private val logger = LoggerFactory.getLogger("Routes")
+
+private val pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) as ThreadPoolExecutor
 
 @Serializable
 data class RunResponse(val taskId: String)
@@ -58,9 +63,9 @@ fun Route.httpRoutes() {
                 )
             call.respond(ExpressionNetworkImpl.queryExpressionsState(ids).map { ExpressionState(it.first, it.second) })
         } catch (e: ContentTransformationException) {
-            call.respond(HttpStatusCode.BadRequest,  e.localizedMessage)
+            call.respond(HttpStatusCode.BadRequest, e.localizedMessage)
         } catch (e: Exception) {
-            call.respond(HttpStatusCode.InternalServerError,  e.localizedMessage)
+            call.respond(HttpStatusCode.InternalServerError, e.localizedMessage)
         }
     }
 
@@ -90,19 +95,31 @@ fun Route.httpRoutes() {
 
     post("/update_func") {
         val funcId = call.receive<FuncId>()
-        ExpressionNetworkImpl.updateFunc(funcId)
+        pool.execute {
+            runBlocking {
+                ExpressionNetworkImpl.updateFunc(funcId)
+            }
+        }
         call.respond(HttpStatusCode.OK)
     }
 
     post("/succeed_run") {
         val res = call.receive<RunResponse>()
-        ExpressionNetworkImpl.succeedRun(res.taskId)
+        pool.execute {
+            runBlocking {
+                ExpressionNetworkImpl.succeedRun(res.taskId)
+            }
+        }
         call.respond(res)
     }
 
     post("/failed_run") {
         val res = call.receive<RunResponse>()
-        ExpressionNetworkImpl.failedRun(res.taskId)
+        pool.execute {
+            runBlocking {
+                ExpressionNetworkImpl.failedRun(res.taskId)
+            }
+        }
         call.respond(res)
     }
 }

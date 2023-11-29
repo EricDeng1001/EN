@@ -1,12 +1,15 @@
 package model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 typealias TimeLength = Int
 typealias ArgName = String
 
 enum class InputType {
+    @SerialName("dataId")
     DataId,
+    @SerialName("list")
     List
 }
 @Serializable

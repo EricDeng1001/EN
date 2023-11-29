@@ -29,10 +29,12 @@ data class Graph(val expressions: List<Expression>) {
         val edges: MutableList<GraphView.GraphEdge> = ArrayList()
         for (ex in expressions) {
             for (input in ex.inputs) {
-                nodes.computeIfAbsent(input.str) {
-                    GraphView.GraphNode(
-                        GraphView.GraphNode.Id(input.str), "data"
-                    )
+                for (i in input.ids){
+                    nodes.computeIfAbsent(i.str) {
+                        GraphView.GraphNode(
+                            GraphView.GraphNode.Id(i.str), "data"
+                        )
+                    }
                 }
             }
             for (output in ex.outputs) {
@@ -53,7 +55,9 @@ data class Graph(val expressions: List<Expression>) {
         for (ex in expressions) {
             val operator = nodes[ex.funcId.value]!!
             for (input in ex.inputs) {
-                edges.add(GraphView.GraphEdge(nodes[input.str]!!.id, operator.id))
+                for(i in input.ids){
+                    edges.add(GraphView.GraphEdge(nodes[i.str]!!.id, operator.id))
+                }
             }
             for (output in ex.outputs) {
                 edges.add(GraphView.GraphEdge(operator.id, nodes[output.str]!!.id))
