@@ -75,8 +75,12 @@ fun Route.httpRoutes() {
         call.respond(HttpStatusCode.OK)
     }
 
-    post("run/expression") {
+    post("run/expression/{force}") {
         val req = call.receive<DataId>()
+        val force = call.parameters["force"]
+        if (force != "") {
+            ExpressionNetworkImpl.markForceRunPerf(req)
+        }
         ExpressionNetworkImpl.runExpression(req)
         call.respond(HttpStatusCode.OK)
     }
