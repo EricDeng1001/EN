@@ -45,15 +45,16 @@ data class Graph(val expressions: List<Expression>) {
                 }
             }
 
-            nodes.computeIfAbsent(ex.funcId.value) {
+            val opId = "${ex.funcId.value}_${ex.outputs[0]}"
+            nodes[opId] =
                 GraphView.GraphNode(
-                    GraphView.GraphNode.Id(ex.funcId.value), "operator"
+                    GraphView.GraphNode.Id(opId), "operator"
                 )
-            }
         }
 
         for (ex in expressions) {
-            val operator = nodes[ex.funcId.value]!!
+            val opId = "${ex.funcId.value}_${ex.outputs[0]}"
+            val operator = nodes[opId]!!
             for (input in ex.inputs) {
                 for(i in input.ids){
                     edges.add(GraphView.GraphEdge(nodes[i.str]!!.id, operator.id))
