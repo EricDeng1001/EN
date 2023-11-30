@@ -9,9 +9,11 @@ typealias ArgName = String
 enum class InputType {
     @SerialName("dataId")
     DataId,
+
     @SerialName("list")
     List
 }
+
 @Serializable
 data class Input(val type: InputType, val ids: List<DataId>)
 
