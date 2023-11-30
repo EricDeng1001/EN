@@ -8,7 +8,7 @@ import kotlin.collections.HashMap
 data class GraphView(val nodes: List<GraphNode>, val edges: List<GraphEdge>) {
 
     @Serializable
-    data class GraphNode(val id: Id, val type: String) {
+    data class GraphNode(val id: Id, val type: String, val parseId: String) {
 
         @JvmInline
         @Serializable
@@ -32,7 +32,7 @@ data class Graph(val expressions: List<Expression>) {
                 for (i in input.ids){
                     nodes.computeIfAbsent(i.str) {
                         GraphView.GraphNode(
-                            GraphView.GraphNode.Id(i.str), "data"
+                            GraphView.GraphNode.Id(i.str), "data", i.str
                         )
                     }
                 }
@@ -40,7 +40,7 @@ data class Graph(val expressions: List<Expression>) {
             for (output in ex.outputs) {
                 nodes.computeIfAbsent(output.str) {
                     GraphView.GraphNode(
-                        GraphView.GraphNode.Id(output.str), "data"
+                        GraphView.GraphNode.Id(output.str), "data", output.str
                     )
                 }
             }
@@ -48,7 +48,7 @@ data class Graph(val expressions: List<Expression>) {
             val opId = "${ex.funcId.value}_${ex.outputs[0]}"
             nodes[opId] =
                 GraphView.GraphNode(
-                    GraphView.GraphNode.Id(opId), "operator"
+                    GraphView.GraphNode.Id(opId), "operator", ex.funcId.value
                 )
         }
 
