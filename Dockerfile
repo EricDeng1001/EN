@@ -1,5 +1,5 @@
 FROM gradle:8.4.0-jdk17 AS build
-COPY --chown=gradle:gradle build.gradle.kts gradle.properties settings.gradle.kts /
+COPY --chown=gradle:gradle build.gradle.kts gradle.properties settings.gradle.kts /home/gradle/
 RUN gradle clean build --no-daemon --info
 COPY --chown=gradle:gradle . /home/gradle/src
 WORKDIR /home/gradle/src

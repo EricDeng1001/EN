@@ -127,7 +127,7 @@ abstract class ExpressionNetwork(
                     messageQueue.pushRunning(id)
                 }
             } catch (e: Exception) {
-                logger.error("try to run expression node error: $e")
+                logger.error("try to run expression node err: $e")
                 taskRepository.delete(task.id)
                 for (id in node.ids()) {
                     messageQueue.pushSystemFailed(id)
