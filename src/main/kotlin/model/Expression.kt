@@ -13,7 +13,7 @@ enum class InputType {
     List
 }
 @Serializable
-class Input(val type: InputType, val ids: List<DataId>)
+data class Input(val type: InputType, val ids: List<DataId>)
 
 @Serializable
 data class Expression(
