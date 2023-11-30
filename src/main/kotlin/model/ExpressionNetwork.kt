@@ -110,6 +110,15 @@ abstract class ExpressionNetwork(
             }
 
             if (!node.shouldRun()) {
+                if (node.isPerfCalculated.not()){
+                    try{
+                        performanceService.calculate(node.expression.outputs[0])
+                        node.isPerfCalculated = true
+                    }catch (e: Exception){
+                        logger.error("calculate performance error: $e")
+                    }
+                }
+                nodeRepository.save(node)
                 endRun(node)
                 return
             }
