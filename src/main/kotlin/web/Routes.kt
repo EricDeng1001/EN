@@ -41,32 +41,18 @@ data class ExpressionState(val id: DataId, val state: Boolean? = null)
 fun Route.httpRoutes() {
 
     get("/graph") {
-        try {
-            val ids: List<DataId> =
-                call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList() ?: return@get call.respond(
-                    HttpStatusCode.BadRequest
-                )
-            val graph = ExpressionNetworkImpl.buildGraph(ids)
-            call.respond(graph.view())
-        } catch (e: ContentTransformationException) {
-            call.respond(HttpStatusCode.BadRequest, e.localizedMessage)
-        } catch (e: Exception) {
-            call.respond(HttpStatusCode.InternalServerError, e.localizedMessage)
-        }
+        val ids: List<DataId> =
+            call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
+                ?: throw IllegalArgumentException("id is required")
+        val graph = ExpressionNetworkImpl.buildGraph(ids)
+        call.respond(graph.view())
     }
 
     get("/expression/state") {
-        try {
-            val ids: List<DataId> =
-                call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList() ?: return@get call.respond(
-                    HttpStatusCode.BadRequest
-                )
-            call.respond(ExpressionNetworkImpl.queryExpressionsState(ids).map { ExpressionState(it.first, it.second) })
-        } catch (e: ContentTransformationException) {
-            call.respond(HttpStatusCode.BadRequest, e.localizedMessage)
-        } catch (e: Exception) {
-            call.respond(HttpStatusCode.InternalServerError, e.localizedMessage)
-        }
+        val ids: List<DataId> =
+            call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
+                ?: throw IllegalArgumentException("id is required")
+        call.respond(ExpressionNetworkImpl.queryExpressionsState(ids).map { ExpressionState(it.first, it.second) })
     }
 
     post("/run/root") {
@@ -76,7 +62,7 @@ fun Route.httpRoutes() {
     }
 
     post("run/expression") {
-        val force  = call.request.queryParameters["force"] ?: ""
+        val force = call.request.queryParameters["force"] ?: ""
         val req = call.receive<DataId>()
         if (force != "") {
             ExpressionNetworkImpl.markForceRunPerf(req)

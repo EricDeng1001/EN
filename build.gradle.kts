@@ -38,6 +38,7 @@ dependencies {
     implementation("io.ktor:ktor-client-core:$ktorVersion")
     implementation("io.ktor:ktor-client-cio:$ktorVersion")
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("com.charleskorn.kaml:kaml:0.54.0")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.3.2")
     // MongoDB Kotlin driver dependency

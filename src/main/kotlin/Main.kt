@@ -6,6 +6,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import kotlinx.serialization.json.Json
+import web.configureStatusPages
 import web.httpRoutes
 import web.websocketRoutes
 import java.time.Duration
@@ -16,6 +17,7 @@ fun Application.module() {
     configureSockets()
     configureRouting()
     configureSerialization()
+    configureStatusPages()
 }
 
 fun Application.configureSockets() {
