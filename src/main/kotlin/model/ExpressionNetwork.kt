@@ -8,6 +8,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.ArrayList
 
 
 abstract class ExpressionNetwork(
@@ -318,13 +319,21 @@ abstract class ExpressionNetwork(
         return result
     }
 
-//    private suspend fun tryBatch(expression: Expression): BatchExpression {
-//        val batchList:
-//        val downstream = downstream(expression)
-//        when (downstream.size) {
-//            1 ->
-//        }
-//    }
+    private suspend fun tryBatch(node: Node): BatchExpression {
+        val batchList = ArrayList<Expression>()
+        return tryBatchInternal(batchList, node)
+    }
+
+    private tailrec suspend fun tryBatchInternal(batchList: ArrayList<Expression>, node: Node): BatchExpression {
+        batchList.add(node.expression)
+        val downstream = downstream(node.expression)
+        return if (downstream.size != 1 || node.mustCalculate) {
+            BatchExpression(batchList)
+        } else {
+            batchList.add(downstream.first().expression)
+            tryBatchInternal(batchList, downstream.first())
+        }
+    }
 
     private suspend fun saveRoot(expression: Expression): List<DataId> {
         if (nodeRepository.queryByOutput(expression.outputs[0]) == null) {
