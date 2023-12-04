@@ -18,7 +18,8 @@ class MongoTaskRepositoryTest {
     fun setUp() {
         task = Task(
             id = "123456789", expression = Expression(
-                inputs = listOf(DataId("open_test"), DataId("close_test")),
+                inputs = listOf(Input(type = InputType.DataId, ids = listOf(DataId("open_test"))),
+                    Input(type = InputType.DataId, ids = listOf(DataId("close_test")))),
                 outputs = listOf(DataId("en_node_mongo_repo_test")),
                 funcId = FuncId("add_test"),
                 dataflow = "",

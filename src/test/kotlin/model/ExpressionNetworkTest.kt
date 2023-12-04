@@ -27,7 +27,7 @@ class MockNodeRepo : NodeRepository {
         funcMap.computeIfAbsent(nodeCopy.expression.funcId) { CopyOnWriteArraySet() }
             .add(nodeCopy) // fix ConcurrentModificationException when updateFuncId
         nodeCopy.expression.inputs.forEach {
-            inputMap.computeIfAbsent(it) { CopyOnWriteArraySet() }.add(nodeCopy) // ConcurrentModificationException
+            inputMap.computeIfAbsent(it.ids[0]) { CopyOnWriteArraySet() }.add(nodeCopy) // ConcurrentModificationException
         }
         nodeCopy.expression.outputs.forEach {
             outputMap[it] = nodeCopy
@@ -121,6 +121,10 @@ class ExpressionNetworkTest(
 
 }
 
+fun List<DataId>.toInputs(): List<Input> {
+    return this.map { Input(type = InputType.DataId, ids = listOf(it)) }
+}
+
 object TestCases {
     val d1 = DataId("d1")
     val d2 = DataId("d2")
@@ -155,7 +159,8 @@ object TestCases {
             en.nodeRepository.queryByOutput(d2)!!.effectivePtr = Pointer(10)
             var genIds = en.add(
                 Expression(
-                    inputs = listOf(d1, d2),
+                    inputs = listOf(Input(type = InputType.DataId, ids = listOf(d1)),
+                        Input(type = InputType.DataId, ids = listOf(d2))),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -169,7 +174,7 @@ object TestCases {
             }
             genIds = en.add(
                 Expression(
-                    inputs = genIds,
+                    inputs = genIds.toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -184,7 +189,7 @@ object TestCases {
             assertEquals(Pointer.ZERO, en.nodeRepository.queryByOutput(d3)!!.expectedPtr)
             genIds = en.add(
                 Expression(
-                    inputs = listOf(d1, d3),
+                    inputs = listOf(d1, d3).toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -206,7 +211,7 @@ object TestCases {
             en.add(Expression.makeRoot(d1))
             en.add(Expression.makeRoot(d2))
             val expr = Expression(
-                inputs = listOf(d1, d2),
+                inputs = listOf(d1, d2).toInputs(),
                 outputs = listOf(p1),
                 f1,
                 dataflow = "",
@@ -244,7 +249,7 @@ object TestCases {
             en.add(Expression.makeRoot(d2))
             val exp1 = en.add(
                 Expression(
-                    inputs = listOf(d1, d2),
+                    inputs = listOf(d1, d2).toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -253,7 +258,7 @@ object TestCases {
             )
             val exp2 = en.add(
                 Expression(
-                    inputs = exp1,
+                    inputs = exp1.toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -290,7 +295,7 @@ object TestCases {
             exp3Inputs.add(d3)
             val exp3 = en.add(
                 Expression(
-                    inputs = exp3Inputs,
+                    inputs = exp3Inputs.toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -323,7 +328,7 @@ object TestCases {
             en.add(Expression.makeRoot(d2))
             val exp1 = en.add(
                 Expression(
-                    inputs = listOf(d1, d2),
+                    inputs = listOf(d1, d2).toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -332,7 +337,7 @@ object TestCases {
             )
             val exp2 = en.add(
                 Expression(
-                    inputs = exp1,
+                    inputs = exp1.toInputs(),
                     outputs = listOf(p1),
                     f2,
                     dataflow = "",
@@ -341,7 +346,7 @@ object TestCases {
             )
             val exp3 = en.add(
                 Expression(
-                    inputs = exp2,
+                    inputs = exp2.toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -382,7 +387,7 @@ object TestCases {
             en.add(Expression.makeRoot(d2))
             val exp1 = en.add(
                 Expression(
-                    inputs = listOf(d1, d2),
+                    inputs = listOf(d1, d2).toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -391,7 +396,7 @@ object TestCases {
             )
             val exp2 = en.add(
                 Expression(
-                    inputs = exp1,
+                    inputs = exp1.toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
@@ -400,7 +405,7 @@ object TestCases {
             )
             val exp3 = en.add(
                 Expression(
-                    inputs = exp2,
+                    inputs = exp2.toInputs(),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",
