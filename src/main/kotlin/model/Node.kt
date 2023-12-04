@@ -12,6 +12,7 @@ data class Node(
     var isRunning: Boolean,
     var resetPtr: Boolean,
     val expression: Expression,
+    var lastStartTime: Instant = Instant.DISTANT_PAST,
     var lastUpdateTime: Instant = Instant.DISTANT_PAST,
     var isPerfCalculated: Boolean = false
 ) {

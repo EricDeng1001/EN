@@ -2,6 +2,8 @@ package model
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -110,12 +112,12 @@ abstract class ExpressionNetwork(
             }
 
             if (!node.shouldRun()) {
-                if (node.isPerfCalculated.not()){
-                    try{
+                if (node.isPerfCalculated.not()) {
+                    try {
                         performanceService.calculate(node.expression.outputs[0])
                         node.isPerfCalculated = true
                         nodeRepository.save(node)
-                    }catch (e: Exception){
+                    } catch (e: Exception) {
                         logger.error("calculate performance error: $e")
                     }
                 }
@@ -130,6 +132,7 @@ abstract class ExpressionNetwork(
             try {
                 taskRepository.save(task)
                 logger.info("try to tun expression node: $task")
+                node.lastStartTime = Clock.System.now()
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 node.isRunning = true
                 for (id in node.ids()) {
@@ -169,13 +172,13 @@ abstract class ExpressionNetwork(
         val task = taskRepository.get(id) ?: return
         val node = getNode(task.expression.outputs[0])!!
         val mutex = locks[node.id]!!
+        node.lastUpdateTime = Clock.System.now()
         var reset: Boolean
         mutex.withLock {
             node.isRunning = false
             reset = node.resetPtr
             if (!reset) { // a success run
                 node.effectivePtr = node.expectedPtr
-
                 if (!node.isPerfCalculated) {
                     try {
                         for (output in node.expression.outputs) {
@@ -186,7 +189,6 @@ abstract class ExpressionNetwork(
                         logger.error("calculate performance error: $e")
                     }
                 }
-
                 nodeRepository.save(node)
             }
         }
