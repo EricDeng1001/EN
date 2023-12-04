@@ -45,6 +45,13 @@ abstract class ExpressionNetwork(
         }
     }
 
+    suspend fun markMustCalc(ids: List<DataId>) {
+        for (id in ids) {
+            val node = getNode(id) ?: continue
+            node.mustCalculate = true
+            nodeRepository.save(node)
+        }
+    }
     suspend fun buildGraph(ids: List<DataId>): Graph {
         val expressions: MutableList<Expression> = ArrayList()
         for (id in ids) {
@@ -98,9 +105,7 @@ abstract class ExpressionNetwork(
         // end 3
         if (!node.valid) {
             endRun(node)
-            for (id in node.ids()) {
-                messageQueue.pushRunFailed(id)
-            }
+            pushFailed(node)
             return
         }
         val mutex =
@@ -125,32 +130,27 @@ abstract class ExpressionNetwork(
                 return
             }
 
-            val task = Task(
-                id = genId(), expression = node.expression
-            )
 
             try {
-                taskRepository.save(task)
+                val task = Task(
+                    id = genId(), expression = node.expression, start = Clock.System.now()
+                )
                 logger.info("try to tun expression node: $task")
-                node.lastStartTime = Clock.System.now()
+                taskRepository.save(task)
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 node.isRunning = true
-                for (id in node.ids()) {
-                    messageQueue.pushRunning(id)
-                }
+                pushRunning(node)
             } catch (e: Exception) {
                 logger.error("try to run expression node err: $e")
-                taskRepository.delete(task.id)
-                for (id in node.ids()) {
-                    messageQueue.pushSystemFailed(id)
-                }
+                pushSystemFailed(node)
                 endRun(node)
             }
         }
     }
 
+
     private suspend fun updateDownstream(root: Node) {
-        for (node in loadDownstream(root.expression)) {
+        for (node in downstream(root.expression)) {
             node.expectedPtr = findExpectedPtr(node.expression)
             nodeRepository.save(node)  // update expected ptr
             tryRunExpressionNode(node) // try run (this start a new run session)
@@ -158,7 +158,7 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun findExpectedPtr(expression: Expression): Pointer {
-        val nodes = loadUpstream(expression)
+        val nodes = upstream(expression)
         var expectedPtr: Pointer = Pointer.MAX
         for (node in nodes) {
             expectedPtr = minOf(node.effectivePtr, expectedPtr)
@@ -172,7 +172,7 @@ abstract class ExpressionNetwork(
         val task = taskRepository.get(id) ?: return
         val node = getNode(task.expression.outputs[0])!!
         val mutex = locks[node.id]!!
-        node.lastUpdateTime = Clock.System.now()
+        task.finish = Clock.System.now()
         var reset: Boolean
         mutex.withLock {
             node.isRunning = false
@@ -199,10 +199,21 @@ abstract class ExpressionNetwork(
 
         endRun(node)
 
-        taskRepository.delete(id)
+        taskRepository.save(task)
         for (output in node.ids()) {
             messageQueue.pushRunFinish(output)
         }
+    }
+
+    suspend fun failedRun(id: TaskId) {
+        logger.info("failed run: $id")
+        val task = taskRepository.get(id) ?: return
+        task.finish = Clock.System.now()
+        taskRepository.save(task)
+        val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
+        pushFailed(node)
+        endRun(node)
+        markInvalid(node)
     }
 
     private fun endRun(node: Node) {
@@ -210,27 +221,16 @@ abstract class ExpressionNetwork(
         loadedNodes.remove(node.id)
     }
 
-    suspend fun failedRun(id: TaskId) {
-        logger.info("failed run: $id")
-        val task = taskRepository.get(id) ?: return
-        taskRepository.delete(id)
-        val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
-        for (id in node.ids()) {
-            messageQueue.pushRunFailed(id)
-        }
-        endRun(node)
-        markInvalid(node)
-    }
-
     // end 2
     private suspend fun markInvalid(node: Node) {
         node.valid = false
         node.effectivePtr = Pointer.ZERO
         nodeRepository.save(node)
-        for (dNode in loadDownstream(node.expression)) {
+        for (dNode in downstream(node.expression)) {
             markInvalid(dNode)
         }
     }
+
 
 //    fun timeoutRun(id: TaskId) {
 //        executor.tryCancel(id)
@@ -256,13 +256,13 @@ abstract class ExpressionNetwork(
             nodeRepository.save(node)
         }
 
-        for (dNode in loadDownstream(node.expression)) {
+        for (dNode in downstream(node.expression)) {
             markNeedUpdate(dNode)
         }
     }
 
 
-    suspend fun loadUpstream(expression: Expression): Set<Node> {
+    private suspend fun upstream(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.inputs) {
             for (id in input.ids) {
@@ -273,7 +273,7 @@ abstract class ExpressionNetwork(
     }
 
 
-    suspend fun loadDownstream(expression: Expression): Set<Node> {
+    private suspend fun downstream(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.outputs) {
             result.addAll(findNodeByInput(input))
@@ -318,6 +318,14 @@ abstract class ExpressionNetwork(
         return result
     }
 
+//    private suspend fun tryBatch(expression: Expression): BatchExpression {
+//        val batchList:
+//        val downstream = downstream(expression)
+//        when (downstream.size) {
+//            1 ->
+//        }
+//    }
+
     private suspend fun saveRoot(expression: Expression): List<DataId> {
         if (nodeRepository.queryByOutput(expression.outputs[0]) == null) {
             val node = Node(
@@ -334,6 +342,28 @@ abstract class ExpressionNetwork(
     }
 
     private fun genId() = "__" + UUID.randomUUID().toString().replace("-", "")
+    private suspend fun pushRunning(node: Node) {
+        for (id in node.ids()) {
+            messageQueue.pushRunning(id)
+        }
+    }
 
+    private suspend fun pushFailed(node: Node) {
+        for (id in node.ids()) {
+            messageQueue.pushRunFailed(id)
+        }
+    }
+
+    private suspend fun pushFinished(node: Node) {
+        for (id in node.ids()) {
+            messageQueue.pushRunFinish(id)
+        }
+    }
+
+    private suspend fun pushSystemFailed(node: Node) {
+        for (id in node.ids()) {
+            messageQueue.pushSystemFailed(id)
+        }
+    }
 
 }

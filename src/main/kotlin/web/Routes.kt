@@ -13,6 +13,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import model.*
@@ -26,8 +27,6 @@ data class RunRootRequest(
 )
 
 private val logger = LoggerFactory.getLogger("Routes")
-
-private val pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) as ThreadPoolExecutor
 
 @Serializable
 data class RunResponse(val taskId: String)
@@ -85,32 +84,31 @@ fun Route.httpRoutes() {
 
     post("/update_func") {
         val funcId = call.receive<FuncId>()
-        pool.execute {
-            runBlocking {
-                ExpressionNetworkImpl.updateFunc(funcId)
-            }
+        launch {
+            ExpressionNetworkImpl.updateFunc(funcId)
         }
         call.respond(HttpStatusCode.OK)
     }
 
     post("/succeed_run") {
         val res = call.receive<RunResponse>()
-        pool.execute {
-            runBlocking {
-                ExpressionNetworkImpl.succeedRun(res.taskId)
-            }
+        launch {
+            ExpressionNetworkImpl.succeedRun(res.taskId)
         }
         call.respond(res)
     }
 
     post("/failed_run") {
         val res = call.receive<RunResponse>()
-        pool.execute {
-            runBlocking {
-                ExpressionNetworkImpl.failedRun(res.taskId)
-            }
+        launch {
+            ExpressionNetworkImpl.failedRun(res.taskId)
         }
         call.respond(res)
+    }
+
+    post("/markMust") {
+        val ids = call.receive<List<DataId>>()
+        ExpressionNetworkImpl.markMustCalc(ids)
     }
 }
 

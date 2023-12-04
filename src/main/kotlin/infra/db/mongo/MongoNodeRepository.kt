@@ -20,9 +20,8 @@ data class NodeDO(
     val effectivePtr: Int,
     val expectedPtr: Int,
     val expression: ExpressionDO,
-    val lastStartTime: LocalDateTime? = null,
-    val lastUpdateTime: LocalDateTime? = null,
-    val isPerfCalculated: Boolean? = null
+    val isPerfCalculated: Boolean? = null,
+    val mustCalculate: Boolean? = null
 ) {
     data class InputDO(
         val type: String,
@@ -69,11 +68,8 @@ data class NodeDO(
             isRunning = false,
             resetPtr = false,
             expression = expression.toModel(),
-            lastStartTime = lastStartTime?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
-                ?: Instant.DISTANT_PAST,
-            lastUpdateTime = lastUpdateTime?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
-                ?: Instant.DISTANT_PAST,
-            isPerfCalculated = isPerfCalculated ?: false
+            isPerfCalculated = isPerfCalculated ?: false,
+            mustCalculate = mustCalculate ?: false
         )
     }
 }
@@ -85,9 +81,8 @@ fun Node.toMongo(id: ObjectId): NodeDO {
         effectivePtr.value,
         expectedPtr.value,
         expression.toMongo(),
-        lastStartTime.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
-        lastUpdateTime.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
-        isPerfCalculated
+        isPerfCalculated,
+        mustCalculate = mustCalculate
     )
 }
 

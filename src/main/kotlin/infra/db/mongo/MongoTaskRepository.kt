@@ -4,25 +4,37 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.*
 import model.Task
 import model.TaskId
 import model.TaskRepository
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
+import java.time.LocalDateTime
 
 data class TaskDO(
-    @BsonId val id: ObjectId?, val taskId: String, val expression: NodeDO.ExpressionDO
+    @BsonId val id: ObjectId?,
+    val taskId: String,
+    val expression: NodeDO.ExpressionDO,
+    val start: LocalDateTime? = null,
+    val finish: LocalDateTime? = null,
 ) {
     fun toModel(): Task {
         return Task(
-            taskId, expression.toModel()
+            taskId, expression.toModel(),
+            start = start?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
+                ?: Instant.DISTANT_PAST,
+            finish = finish?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
+                ?: Instant.DISTANT_PAST,
         )
     }
 }
 
 fun Task.toMongo(oid: ObjectId?): TaskDO {
     return TaskDO(
-        oid, id, expression.toMongo()
+        oid, id, expression.toMongo(),
+        start.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
+        finish.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
     )
 }
 

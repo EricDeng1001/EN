@@ -38,4 +38,8 @@ data class Expression(
     }
 }
 
+data class BatchExpression(
+    val expressions: List<Expression>
+)
+
 
