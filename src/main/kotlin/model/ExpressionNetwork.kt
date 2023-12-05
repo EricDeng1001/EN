@@ -341,7 +341,7 @@ abstract class ExpressionNetwork(
         val first = downstream.first()
         return if (downstream.size == 1
             && !node.mustCalculate
-            && upstream(first).filter { it != node }.map { node.effectivePtr >= to }.reduce(Boolean::and)
+            && upstream(first).filter { it != node }.map { it.effectivePtr >= to }.fold(true, Boolean::and)
         ) {
             tryBatchInternal(batchList, first, to)
         } else {
