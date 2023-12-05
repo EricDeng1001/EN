@@ -7,7 +7,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.ArrayList
 
 
 abstract class ExpressionNetwork(
@@ -52,6 +51,7 @@ abstract class ExpressionNetwork(
             nodeRepository.save(node)
         }
     }
+
     suspend fun buildGraph(ids: List<DataId>): Graph {
         val expressions: MutableList<Expression> = ArrayList()
         for (id in ids) {
@@ -272,6 +272,9 @@ abstract class ExpressionNetwork(
         return result
     }
 
+    private suspend fun upstream(node: Node): Set<Node> {
+        return upstream(node.expression)
+    }
 
     private suspend fun downstream(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
@@ -279,6 +282,10 @@ abstract class ExpressionNetwork(
             result.addAll(findNodeByInput(input))
         }
         return result
+    }
+
+    private suspend fun downstream(node: Node): Set<Node> {
+        return downstream(node.expression)
     }
 
     suspend fun add(expression: Expression): List<DataId> {
@@ -323,14 +330,22 @@ abstract class ExpressionNetwork(
         return tryBatchInternal(batchList, node, to)
     }
 
-    private tailrec suspend fun tryBatchInternal(batchList: ArrayList<Expression>, node: Node, to: Pointer): BatchExpression {
+    private tailrec suspend fun tryBatchInternal(
+        batchList: ArrayList<Expression>,
+        node: Node,
+        to: Pointer
+    ): BatchExpression {
         batchList.add(node.expression)
-        val downstream = downstream(node.expression)
-        return if (downstream.size != 1 || node.mustCalculate || downstream.map { it == node || node.effectivePtr >= to }.reduce(Boolean::or)) {
-            BatchExpression(batchList)
+        node.expectedPtr = to
+        val downstream = downstream(node)
+        val first = downstream.first()
+        return if (downstream.size == 1
+            && node.mustCalculate
+            && upstream(first).filter { it != node }.map { node.effectivePtr >= to }.reduce(Boolean::or).not()
+        ) {
+            tryBatchInternal(batchList, first, to)
         } else {
-            batchList.add(downstream.first().expression)
-            tryBatchInternal(batchList, downstream.first(), to)
+            BatchExpression(batchList)
         }
     }
 
