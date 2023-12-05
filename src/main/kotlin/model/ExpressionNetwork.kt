@@ -118,7 +118,7 @@ abstract class ExpressionNetwork(
             }
 
             if (!node.shouldRun()) {
-                if (node.isPerfCalculated.not()) {
+                if (node.isPerfCalculated.not() && node.effectivePtr != Pointer.ZERO) {
                     try {
                         performanceService.calculate(node.expression.outputs[0])
                         node.isPerfCalculated = true
