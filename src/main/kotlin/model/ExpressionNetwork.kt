@@ -3,7 +3,6 @@ package model
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -319,19 +318,19 @@ abstract class ExpressionNetwork(
         return result
     }
 
-    private suspend fun tryBatch(node: Node): BatchExpression {
+    private suspend fun tryBatch(node: Node, to: Pointer): BatchExpression {
         val batchList = ArrayList<Expression>()
-        return tryBatchInternal(batchList, node)
+        return tryBatchInternal(batchList, node, to)
     }
 
-    private tailrec suspend fun tryBatchInternal(batchList: ArrayList<Expression>, node: Node): BatchExpression {
+    private tailrec suspend fun tryBatchInternal(batchList: ArrayList<Expression>, node: Node, to: Pointer): BatchExpression {
         batchList.add(node.expression)
         val downstream = downstream(node.expression)
-        return if (downstream.size != 1 || node.mustCalculate) {
+        return if (downstream.size != 1 || node.mustCalculate || downstream.map { it == node || node.effectivePtr >= to }.reduce(Boolean::or)) {
             BatchExpression(batchList)
         } else {
             batchList.add(downstream.first().expression)
-            tryBatchInternal(batchList, downstream.first())
+            tryBatchInternal(batchList, downstream.first(), to)
         }
     }
 
