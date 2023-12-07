@@ -148,18 +148,19 @@ abstract class ExpressionNetwork(
             )
             try {
                 logger.info("try to tun expression node: $task")
-                taskRepository.save(task)
-                executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 node.isRunning = true
                 states[node.id] = NodeState.RUNNING
                 pushRunning(node)
+                taskRepository.save(task)
+                executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
             } catch (e: Exception) {
                 logger.error("try to run expression node err: $e")
-                task.failedReason = e.message
+                node.isRunning = false
                 states[node.id] = NodeState.SYSTEM_FAILED
                 pushSystemFailed(node)
-                endRun(node)
+                task.failedReason = e.message
                 taskRepository.save(task)
+                endRun(node)
             }
         }
     }
