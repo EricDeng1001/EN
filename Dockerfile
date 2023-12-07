@@ -11,5 +11,6 @@ RUN mkdir /appbus
 COPY --from=build /home/gradle/src/build/libs/*.jar /app/en.jar
 COPY --from=build /home/gradle/src/*.yaml /app/
 WORKDIR /app
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shanghai" > /etc/timezone
 ENTRYPOINT ["java","-jar","/app/en.jar"]
 
