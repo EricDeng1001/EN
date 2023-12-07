@@ -18,6 +18,7 @@ data class TaskDO(
     val expression: NodeDO.ExpressionDO,
     val start: LocalDateTime? = null,
     val finish: LocalDateTime? = null,
+    var failedReason: String? = null
 ) {
     fun toModel(): Task {
         return Task(
@@ -26,6 +27,7 @@ data class TaskDO(
                 ?: Instant.DISTANT_PAST,
             finish = finish?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
                 ?: Instant.DISTANT_PAST,
+            failedReason
         )
     }
 }
@@ -35,6 +37,7 @@ fun Task.toMongo(oid: ObjectId?): TaskDO {
         oid, id, expression.toMongo(),
         start.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
         finish.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
+        failedReason
     )
 }
 

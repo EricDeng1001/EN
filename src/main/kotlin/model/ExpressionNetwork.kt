@@ -131,20 +131,21 @@ abstract class ExpressionNetwork(
             }
 
 
+            val task = Task(
+                id = genId(), expression = node.expression, start = Clock.System.now()
+            )
             try {
-                val task = Task(
-                    id = genId(), expression = node.expression, start = Clock.System.now()
-                )
                 logger.info("try to tun expression node: $task")
-                taskRepository.save(task)
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 node.isRunning = true
                 pushRunning(node)
             } catch (e: Exception) {
                 logger.error("try to run expression node err: $e")
+                task.failedReason = e.message
                 pushSystemFailed(node)
                 endRun(node)
             }
+            taskRepository.save(task)
         }
     }
 
