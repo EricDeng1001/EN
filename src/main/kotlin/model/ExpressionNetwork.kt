@@ -72,7 +72,12 @@ abstract class ExpressionNetwork(
                 if (node == null) {
                     res.add(Pair(id, null))
                 } else {
-                    res.add(Pair(id, if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value else null))
+                    res.add(
+                        Pair(
+                            id, if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value
+                            else if (!node.valid) NodeState.FAILED.value else null
+                        )
+                    )
                 }
             } else {
                 res.add(Pair(id, state.value))
