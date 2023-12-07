@@ -148,6 +148,7 @@ abstract class ExpressionNetwork(
             )
             try {
                 logger.info("try to tun expression node: $task")
+                taskRepository.save(task)
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 node.isRunning = true
                 states[node.id] = NodeState.RUNNING
@@ -158,8 +159,8 @@ abstract class ExpressionNetwork(
                 states[node.id] = NodeState.SYSTEM_FAILED
                 pushSystemFailed(node)
                 endRun(node)
+                taskRepository.save(task)
             }
-            taskRepository.save(task)
         }
     }
 
