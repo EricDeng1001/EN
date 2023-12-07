@@ -4,6 +4,7 @@ import io.ktor.server.websocket.*
 import kotlinx.serialization.Serializable
 import model.DataId
 import model.MessageQueue
+import model.NodeState
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import web.WebSocketRequest
@@ -22,7 +23,7 @@ object WebSocketNotification : MessageQueue {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
-                    session.sendSerialized(SendMessage(id, "running"))
+                    session.sendSerialized(SendMessage(id, NodeState.RUNNING.value))
                 } catch (e: Exception) {
                     logger.error("Error sending running message to client: $e")
                 }
@@ -34,7 +35,7 @@ object WebSocketNotification : MessageQueue {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
-                    session.sendSerialized(SendMessage(id, "failed"))
+                    session.sendSerialized(SendMessage(id, NodeState.FAILED.value))
                 } catch (e: Exception) {
                     logger.error("Error sending failed message to client: $e")
                 }
@@ -46,7 +47,7 @@ object WebSocketNotification : MessageQueue {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
-                    session.sendSerialized(SendMessage(id, "finished"))
+                    session.sendSerialized(SendMessage(id, NodeState.FINISHED.value))
                 } catch (e: Exception) {
                     logger.error("Error sending finish message to client: $e")
                 }
@@ -58,7 +59,7 @@ object WebSocketNotification : MessageQueue {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
-                    session.sendSerialized(SendMessage(id, "system-failed"))
+                    session.sendSerialized(SendMessage(id, NodeState.SYSTEM_FAILED.value))
                 } catch (e: Exception) {
                     logger.error("Error sending system-failed message to client: $e")
                 }

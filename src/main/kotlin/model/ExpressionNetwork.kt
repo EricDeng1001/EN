@@ -20,6 +20,8 @@ abstract class ExpressionNetwork(
     private val loadedNodes: MutableMap<Node.Id, Node> = ConcurrentHashMap()
     private val locks: MutableMap<Node.Id, Mutex> = ConcurrentHashMap()
 
+    private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
+
     private suspend fun getNode(id: DataId): Node? {
         val node = nodeRepository.queryByOutput(id) ?: return null
         return saveToLoaded(node)
@@ -61,14 +63,19 @@ abstract class ExpressionNetwork(
         return Graph(expressions)
     }
 
-    suspend fun queryExpressionsState(ids: List<DataId>): List<Pair<DataId, Boolean?>> {
-        val res: MutableList<Pair<DataId, Boolean?>> = mutableListOf()
+    suspend fun queryExpressionsState(ids: List<DataId>): List<Pair<DataId, String?>> {
+        val res: MutableList<Pair<DataId, String?>> = mutableListOf()
         for (id in ids) {
-            val node = getNode(id)
-            if (node == null) {
-                res.add(Pair(id, null))
+            val state = states[NodeId(id)]
+            if (state == null) {
+                val node = getNode(id)
+                if (node == null) {
+                    res.add(Pair(id, null))
+                } else {
+                    res.add(Pair(id, if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value else null))
+                }
             } else {
-                res.add(Pair(id, node.effectivePtr > Pointer.ZERO))
+                res.add(Pair(id, state.value))
             }
         }
         return res
@@ -138,10 +145,12 @@ abstract class ExpressionNetwork(
                 logger.info("try to tun expression node: $task")
                 executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 node.isRunning = true
+                states[node.id] = NodeState.RUNNING
                 pushRunning(node)
             } catch (e: Exception) {
                 logger.error("try to run expression node err: $e")
                 task.failedReason = e.message
+                states[node.id] = NodeState.SYSTEM_FAILED
                 pushSystemFailed(node)
                 endRun(node)
             }
@@ -177,6 +186,7 @@ abstract class ExpressionNetwork(
         var reset: Boolean
         mutex.withLock {
             node.isRunning = false
+            states[node.id] = NodeState.FINISHED
             reset = node.resetPtr
             if (!reset) { // a success run
                 node.effectivePtr = node.expectedPtr
@@ -212,6 +222,7 @@ abstract class ExpressionNetwork(
         task.finish = Clock.System.now()
         taskRepository.save(task)
         val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
+        states[node.id] = NodeState.SYSTEM_FAILED
         pushFailed(node)
         endRun(node)
         markInvalid(node)

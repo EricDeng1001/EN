@@ -35,7 +35,7 @@ data class RunResponse(val taskId: String)
 data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<DataId>? = emptySet())
 
 @Serializable
-data class ExpressionState(val id: DataId, val state: Boolean? = null)
+data class ExpressionState(val id: DataId, val state: String? = null)
 
 fun Route.httpRoutes() {
 

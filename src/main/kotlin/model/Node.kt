@@ -3,6 +3,15 @@ package model
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
+@Serializable
+enum class NodeState(val value: String) {
+    RUNNING("running"),
+    FAILED("failed"),
+    FINISHED("finished"),
+    SYSTEM_FAILED("system-failed");
+
+}
+
 typealias NodeId = Node.Id
 @Serializable
 data class Node(
