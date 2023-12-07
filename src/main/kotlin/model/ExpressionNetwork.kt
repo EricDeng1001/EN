@@ -68,7 +68,7 @@ abstract class ExpressionNetwork(
         for (id in ids) {
             val state = states[NodeId(id)]
             if (state == null) {
-                val node = getNode(id)
+                val node = nodeRepository.queryByOutput(id)
                 if (node == null) {
                     res.add(Pair(id, null))
                 } else {
