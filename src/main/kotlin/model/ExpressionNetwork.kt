@@ -227,7 +227,7 @@ abstract class ExpressionNetwork(
         task.finish = Clock.System.now()
         taskRepository.save(task)
         val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
-        states[node.id] = NodeState.SYSTEM_FAILED
+        states[node.id] = NodeState.FAILED
         pushFailed(node)
         endRun(node)
         markInvalid(node)
