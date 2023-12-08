@@ -29,7 +29,7 @@ data class RunRootRequest(
 private val logger = LoggerFactory.getLogger("Routes")
 
 @Serializable
-data class RunResponse(val taskId: String)
+data class RunResponse(val taskId: String, val message: String)
 
 @Serializable
 data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<DataId>? = emptySet())
@@ -101,7 +101,7 @@ fun Route.httpRoutes() {
     post("/failed_run") {
         val res = call.receive<RunResponse>()
         launch {
-            ExpressionNetworkImpl.failedRun(res.taskId)
+            ExpressionNetworkImpl.failedRun(res.taskId, res.message)
         }
         call.respond(res)
     }

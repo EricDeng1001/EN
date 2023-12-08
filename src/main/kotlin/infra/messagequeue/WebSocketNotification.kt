@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 
 @Serializable
-data class SendMessage(val id: DataId, val status: String);
+data class SendMessage(val id: DataId, val status: String, val reason: String = "");
 
 object WebSocketNotification : MessageQueue {
 
@@ -31,11 +31,11 @@ object WebSocketNotification : MessageQueue {
         }
     }
 
-    override suspend fun pushRunFailed(id: DataId) {
+    override suspend fun pushRunFailed(id: DataId, reason: String) {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
-                    session.sendSerialized(SendMessage(id, NodeState.FAILED.value))
+                    session.sendSerialized(SendMessage(id, NodeState.FAILED.value, reason))
                 } catch (e: Exception) {
                     logger.error("Error sending failed message to client: $e")
                 }

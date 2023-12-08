@@ -117,7 +117,7 @@ abstract class ExpressionNetwork(
         // end 3
         if (!node.valid) {
             endRun(node)
-            pushFailed(node)
+            pushFailed(node, "expression not valid due to upstream invalid or self invalid")
             return
         }
         val mutex =
@@ -144,7 +144,11 @@ abstract class ExpressionNetwork(
 
 
             val task = Task(
-                id = genId(), expression = node.expression, start = Clock.System.now()
+                id = genId(),
+                expression = node.expression,
+                start = Clock.System.now(),
+                from = node.effectivePtr,
+                to = node.expectedPtr
             )
             try {
                 logger.info("try to tun expression node: $task")
@@ -223,14 +227,15 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun failedRun(id: TaskId) {
+    suspend fun failedRun(id: TaskId, reason: String) {
         logger.info("failed run: $id")
         val task = taskRepository.get(id) ?: return
         task.finish = Clock.System.now()
+        task.failedReason = reason
         taskRepository.save(task)
         val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
         states[node.id] = NodeState.FAILED
-        pushFailed(node)
+        pushFailed(node, reason)
         endRun(node)
         markInvalid(node)
     }
@@ -390,9 +395,9 @@ abstract class ExpressionNetwork(
         }
     }
 
-    private suspend fun pushFailed(node: Node) {
+    private suspend fun pushFailed(node: Node, reason: String) {
         for (id in node.ids()) {
-            messageQueue.pushRunFailed(id)
+            messageQueue.pushRunFailed(id, reason)
         }
     }
 
