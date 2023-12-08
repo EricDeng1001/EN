@@ -346,25 +346,25 @@ abstract class ExpressionNetwork(
 
     private suspend fun tryBatch(node: Node, to: Pointer): BatchExpression {
         val batchList = ArrayList<Expression>()
-        return tryBatchInternal(batchList, node, to)
+        tryBatchInternal(batchList, node, to)
+        return BatchExpression(batchList)
     }
 
     private tailrec suspend fun tryBatchInternal(
         batchList: ArrayList<Expression>,
         node: Node,
         to: Pointer
-    ): BatchExpression {
-        batchList.add(node.expression)
-        node.expectedPtr = to
-        val downstream = downstream(node)
-        val first = downstream.first()
-        return if (downstream.size == 1
-            && !node.mustCalculate
-            && upstream(first).filter { it != node }.map { it.effectivePtr >= to }.fold(true, Boolean::and)
-        ) {
-            tryBatchInternal(batchList, first, to)
-        } else {
-            BatchExpression(batchList)
+    ) {
+        if (upstream(node).filter { it != node }.map { it.effectivePtr >= to }.fold(true, Boolean::and)) {
+            val downstream = downstream(node)
+            val first = downstream.first()
+            batchList.add(node.expression)
+            node.expectedPtr = to
+            if (downstream.size == 1
+                && !node.mustCalculate
+            ) {
+                tryBatchInternal(batchList, first, to)
+            }
         }
     }
 

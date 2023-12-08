@@ -28,6 +28,8 @@ data class Node(
     value class Id(val id: DataId)
     fun shouldRun(): Boolean = expectedPtr > effectivePtr
 
+    fun isRunRoot(): Boolean = expression.isRoot() || mustCalculate
+
     val id: Id
         get() = Id(expression.outputs[0])
 
