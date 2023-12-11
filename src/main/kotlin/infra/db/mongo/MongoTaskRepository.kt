@@ -5,6 +5,7 @@ import com.mongodb.client.model.ReplaceOptions
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.*
+import model.Pointer
 import model.Task
 import model.TaskId
 import model.TaskRepository
@@ -16,28 +17,37 @@ data class TaskDO(
     @BsonId val id: ObjectId?,
     val taskId: String,
     val expression: NodeDO.ExpressionDO,
+    val from: Int? = null,
+    val to: Int? = null,
     val start: LocalDateTime? = null,
     val finish: LocalDateTime? = null,
     var failedReason: String? = null
 ) {
     fun toModel(): Task {
         return Task(
-            taskId, expression.toModel(),
+            id = taskId,
+            expression = expression.toModel(),
+            from = from?.let { Pointer(it) } ?: Pointer.ZERO,
+            to = to?.let { Pointer(it) } ?: Pointer.ZERO,
             start = start?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
                 ?: Instant.DISTANT_PAST,
             finish = finish?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
                 ?: Instant.DISTANT_PAST,
-            failedReason
+            failedReason = failedReason
         )
     }
 }
 
 fun Task.toMongo(oid: ObjectId?): TaskDO {
     return TaskDO(
-        oid, id, expression.toMongo(),
-        start.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
-        finish.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
-        failedReason
+        oid,
+        taskId = id,
+        expression = expression.toMongo(),
+        from = from.value,
+        to = to.value,
+        start = start.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
+        finish = finish.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
+        failedReason = failedReason
     )
 }
 

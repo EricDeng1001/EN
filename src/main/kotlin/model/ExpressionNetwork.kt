@@ -82,7 +82,20 @@ abstract class ExpressionNetwork(
                     )
                 }
             } else {
-                res.add(Pair(id, state.value))
+                if (state == NodeState.SYSTEM_FAILED) {
+                    val node = nodeRepository.queryByOutput(id)
+                    if (node == null) {
+                        res.add(Pair(id, null))
+                    } else {
+                        res.add(
+                            Pair(
+                                id, if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value else null
+                            )
+                        )
+                    }
+                } else {
+                    res.add(Pair(id, state.value))
+                }
             }
         }
         return res
@@ -275,8 +288,9 @@ abstract class ExpressionNetwork(
 
     // end 2
     private suspend fun markInvalid(node: Node) {
-        node.valid = false
+//        node.valid = false
         node.effectivePtr = Pointer.ZERO
+        node.expectedPtr = Pointer.ZERO
         nodeRepository.save(node)
         for (dNode in downstream(node.expression)) {
             markInvalid(dNode)
