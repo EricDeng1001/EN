@@ -128,9 +128,10 @@ abstract class ExpressionNetwork(
         val toVisit = ArrayList<Node>()
         toVisit.add(node)
         while (toVisit.isNotEmpty()) {
-            toVisit.remove(node)
-            toVisit.addAll(downstream(node))
-            action(toVisit.first())
+            val n = toVisit.first()
+            toVisit.remove(n)
+            toVisit.addAll(downstream(n))
+            action(n)
         }
     }
 
