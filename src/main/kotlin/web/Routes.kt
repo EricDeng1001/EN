@@ -14,12 +14,9 @@ import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
-import java.util.concurrent.Executors
-import java.util.concurrent.ThreadPoolExecutor
 
 @Serializable
 data class RunRootRequest(
@@ -56,7 +53,7 @@ fun Route.httpRoutes() {
 
     post("/run/root") {
         val req = call.receive<RunRootRequest>()
-        ExpressionNetworkImpl.runRoot(DataId(req.dataId), Pointer(req.effectivePtr))
+        ExpressionNetworkImpl.updateRoot(DataId(req.dataId), Pointer(req.effectivePtr))
         call.respond(HttpStatusCode.OK)
     }
 

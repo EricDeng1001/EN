@@ -7,6 +7,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.ArrayList
 
 
 abstract class ExpressionNetwork(
@@ -45,6 +46,7 @@ abstract class ExpressionNetwork(
             return it
         }
     }
+
 
     suspend fun markMustCalc(ids: List<DataId>) {
         for (id in ids) {
@@ -86,10 +88,36 @@ abstract class ExpressionNetwork(
         return res
     }
 
-    suspend fun runRoot(id: DataId, effectivePtr: Pointer) {
+    suspend fun updateRoot(id: DataId, effectivePtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
             runRootNode(node, effectivePtr)
+        }
+    }
+
+    suspend fun reUpdateRoot(id: DataId, effectivePtr: Pointer) {
+        val node = getNode(id) ?: return
+        if (node.expression.isRoot()) {
+            while (true) {
+                val downstreams = downstream(node)
+                if (downstreams.isEmpty()) {
+                    return
+                }
+                for (downstream in downstreams) {
+                    downstream.expectedPtr = effectivePtr
+                }
+            }
+        }
+    }
+
+
+    private suspend fun dfs(node: Node, action: (node: Node) -> Unit) {
+        val toVisit = ArrayList<Node>()
+        toVisit.add(node)
+        while (toVisit.isNotEmpty()) {
+            toVisit.remove(node)
+            toVisit.addAll(downstream(node))
+            action(toVisit.first())
         }
     }
 
