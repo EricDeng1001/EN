@@ -111,15 +111,11 @@ abstract class ExpressionNetwork(
     suspend fun reUpdateRoot(id: DataId, effectivePtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
-            while (true) {
-                val downstreams = downstream(node)
-                if (downstreams.isEmpty()) {
-                    return
-                }
-                for (downstream in downstreams) {
-                    downstream.expectedPtr = effectivePtr
-                }
+            val save = node.effectivePtr
+            dfs(node) {
+                it.effectivePtr = effectivePtr
             }
+            runRootNode(node, save)
         }
     }
 
