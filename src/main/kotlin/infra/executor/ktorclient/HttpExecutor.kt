@@ -31,7 +31,7 @@ data class ExecutorConfig(val http: Boolean, val host: String, val port: Int, va
 data class RunRequestBody(val expression: Expression, val start: Int, val end: Int, val taskId: TaskId)
 
 @Serializable
-data class RunResponseBody(val id: TaskId, val success: Boolean)
+data class RunResponseBody(val started: Boolean)
 
 @Serializable
 data class TryCancelResponseBody(val id: TaskId, val success: Boolean)
@@ -59,7 +59,7 @@ object HttpExecutor : Executor {
         }
     }
 
-    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId) {
+    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId): Boolean {
         val url = URLBuilder(
             protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
             host = config.host,
@@ -80,7 +80,8 @@ object HttpExecutor : Executor {
         if (response.status != HttpStatusCode.OK) {
             throw Exception("run failed: ${response.status} -> ${response.body<String>()}")
         }
-//        val body = response.body<RunResponseBody>()
+        val body = response.body<RunResponseBody>()
+        return body.started
     }
 
     override suspend fun tryCancel(id: TaskId) {

@@ -108,26 +108,26 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun reUpdateRoot(id: DataId, effectivePtr: Pointer) {
+    suspend fun reUpdateRoot(id: DataId, resetPtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
             val save = node.effectivePtr
             dfs(node) {
-                it.effectivePtr = effectivePtr
+                effectivePtr = resetPtr
             }
             runRootNode(node, save)
         }
     }
 
 
-    private suspend fun dfs(node: Node, action: (node: Node) -> Unit) {
+    private suspend fun dfs(node: Node, action: Node.() -> Unit) {
         val toVisit = ArrayList<Node>()
         toVisit.add(node)
         while (toVisit.isNotEmpty()) {
             val n = toVisit.first()
             toVisit.remove(n)
             toVisit.addAll(downstream(n))
-            action(n)
+            n.action()
         }
     }
 
@@ -190,14 +190,15 @@ abstract class ExpressionNetwork(
             )
             try {
                 logger.info("try to tun expression node: $task")
-                node.isRunning = true
-                states[node.id] = NodeState.RUNNING
-                pushRunning(node)
                 taskRepository.save(task)
-                executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                val started = executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                if (started) {
+                    states[node.id] = NodeState.RUNNING
+                    pushRunning(node)
+                    node.isRunning = true
+                }
             } catch (e: Exception) {
                 logger.error("try to run expression node err: $e")
-                node.isRunning = false
                 states[node.id] = NodeState.SYSTEM_FAILED
                 pushSystemFailed(node)
                 task.failedReason = e.message
@@ -271,8 +272,13 @@ abstract class ExpressionNetwork(
         task.finish = Clock.System.now()
         task.failedReason = reason
         taskRepository.save(task)
-        val node = loadedNodes[Node.Id(task.expression.outputs[0])]!!
-        states[node.id] = NodeState.FAILED
+        val nodeId = Node.Id(task.expression.outputs[0])
+        val node = loadedNodes[nodeId]!!
+        val mutex = locks[nodeId]!!
+        mutex.withLock {
+            node.isRunning = false
+            states[node.id] = NodeState.FAILED
+        }
         pushFailed(node, reason)
         endRun(node)
         markInvalid(node)
