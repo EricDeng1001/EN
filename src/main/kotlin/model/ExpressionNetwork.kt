@@ -296,7 +296,7 @@ abstract class ExpressionNetwork(
     private suspend fun markInvalid(node: Node) {
 //        node.valid = false
         node.effectivePtr = Pointer.ZERO
-        node.expectedPtr = Pointer.ZERO
+//        node.expectedPtr = Pointer.ZERO
         nodeRepository.save(node)
         for (dNode in downstream(node.expression)) {
             markInvalid(dNode)
