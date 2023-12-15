@@ -196,6 +196,9 @@ abstract class ExpressionNetwork(
                     states[node.id] = NodeState.RUNNING
                     pushRunning(node)
                     node.isRunning = true
+                } else {
+                    task.failedReason = "insufficient data to run"
+                    taskRepository.save(task)
                 }
             } catch (e: Exception) {
                 logger.error("try to run expression node err: $e")
