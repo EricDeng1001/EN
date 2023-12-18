@@ -191,7 +191,8 @@ abstract class ExpressionNetwork(
             try {
                 logger.info("try to tun expression node: $task")
                 taskRepository.save(task)
-                val started = executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                val started =
+                    executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 if (started) {
                     states[node.id] = NodeState.RUNNING
                     pushRunning(node)
@@ -202,11 +203,7 @@ abstract class ExpressionNetwork(
                 }
             } catch (e: Exception) {
                 logger.error("try to run expression node err: $e")
-                states[node.id] = NodeState.SYSTEM_FAILED
-                pushSystemFailed(node)
-                task.failedReason = e.message
-                taskRepository.save(task)
-                endRun(node)
+                systemFailed(task, node, e.message.toString())
             }
         }
     }
@@ -285,6 +282,22 @@ abstract class ExpressionNetwork(
         pushFailed(node, reason)
         endRun(node)
         markInvalid(node)
+    }
+
+    suspend fun systemFailedRun(id: TaskId, reason: String) {
+        logger.info("system failed run: $id")
+        val task = taskRepository.get(id) ?: return
+        val node = getNode(task.expression.outputs[0])!!
+        systemFailed(task, node, reason)
+    }
+
+    private suspend fun systemFailed(task: Task, node: Node, reason: String) {
+        states[node.id] = NodeState.SYSTEM_FAILED
+        pushSystemFailed(node)
+        task.finish = Clock.System.now()
+        task.failedReason = reason
+        taskRepository.save(task)
+        endRun(node)
     }
 
     private fun endRun(node: Node) {

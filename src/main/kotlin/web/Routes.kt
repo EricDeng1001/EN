@@ -26,7 +26,10 @@ data class RunRootRequest(
 private val logger = LoggerFactory.getLogger("Routes")
 
 @Serializable
-data class RunResponse(val taskId: String, val message: String)
+data class RunSuccessResponse(val taskId: String)
+
+@Serializable
+data class RunErrorResponse(val taskId: String, val message: String, val type: String)
 
 @Serializable
 data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<DataId>? = emptySet())
@@ -37,17 +40,15 @@ data class ExpressionState(val id: DataId, val state: String? = null)
 fun Route.httpRoutes() {
 
     get("/graph") {
-        val ids: List<DataId> =
-            call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
-                ?: throw IllegalArgumentException("id is required")
+        val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
+            ?: throw IllegalArgumentException("id is required")
         val graph = ExpressionNetworkImpl.buildGraph(ids)
         call.respond(graph.view())
     }
 
     get("/expression/state") {
-        val ids: List<DataId> =
-            call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
-                ?: throw IllegalArgumentException("id is required")
+        val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
+            ?: throw IllegalArgumentException("id is required")
         call.respond(ExpressionNetworkImpl.queryExpressionsState(ids).map { ExpressionState(it.first, it.second) })
     }
 
@@ -88,7 +89,7 @@ fun Route.httpRoutes() {
     }
 
     post("/succeed_run") {
-        val res = call.receive<RunResponse>()
+        val res = call.receive<RunSuccessResponse>()
         launch {
             ExpressionNetworkImpl.succeedRun(res.taskId)
         }
@@ -96,9 +97,13 @@ fun Route.httpRoutes() {
     }
 
     post("/failed_run") {
-        val res = call.receive<RunResponse>()
+        val res = call.receive<RunErrorResponse>()
         launch {
-            ExpressionNetworkImpl.failedRun(res.taskId, res.message)
+            if(res.type == NodeState.FAILED.value){
+                ExpressionNetworkImpl.failedRun(res.taskId, res.message)
+            }else if(res.type == NodeState.SYSTEM_FAILED.value){
+                ExpressionNetworkImpl.systemFailedRun(res.taskId, res.message)
+            }
         }
         call.respond(res)
     }
