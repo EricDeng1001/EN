@@ -49,7 +49,7 @@ data class Graph(val nodes: List<Node>) {
 
     private val nodesMap: MutableMap<DataId, DataId> = HashMap()
 
-    private val edgesMap: MutableMap<DataId, DataId> = HashMap()
+    private val edges: MutableList<Pair<DataId, DataId>> = ArrayList()
 
     private val opsMap: MutableMap<DataId, String> = HashMap()
 
@@ -84,11 +84,11 @@ data class Graph(val nodes: List<Node>) {
             val opId = DataId("${ex.funcId.value}_${ex.outputs[0]}")
             for (input in ex.inputs) {
                 for (i in input.ids) {
-                    edgesMap[i] = opId
+                    edges.add(Pair(i, opId))
                 }
             }
             for (output in ex.outputs) {
-                edgesMap[opId] = output
+                edges.add(Pair(opId, output))
             }
         }
     }
@@ -102,7 +102,7 @@ data class Graph(val nodes: List<Node>) {
             GraphView.GraphNode(GraphView.GraphNode.Id(k.str), "operator", v)
         }.toList()
 
-        val es = edgesMap.map { (k, v) ->
+        val es = edges.map { (k, v) ->
             GraphView.GraphEdge(GraphView.GraphNode.Id(k.str), GraphView.GraphNode.Id(v.str))
         }.toList()
 
@@ -132,7 +132,7 @@ data class Graph(val nodes: List<Node>) {
             )
         }.toList()
 
-        val es = edgesMap.map { (k, v) ->
+        val es = edges.map { (k, v) ->
             GraphDebugView.GraphDebugEdge(
                 GraphDebugView.GraphDebugNode.Id(k.str), GraphDebugView.GraphDebugNode.Id(v.str)
             )
