@@ -20,55 +20,124 @@ data class GraphView(val nodes: List<GraphNode>, val edges: List<GraphEdge>) {
 }
 
 @Serializable
-data class Graph(val expressions: List<Expression>) {
+data class GraphDebugView(val nodes: List<GraphDebugNode>, val edges: List<GraphDebugEdge>) {
 
-    private val graphView: GraphView
+    @Serializable
+    data class GraphDebugNode(val id: Id, val type: String, val parseId: String, val debugInfo: DebugInfo? = null) {
+
+        @JvmInline
+        @Serializable
+        value class Id(val str: String)
+
+        @Serializable
+        data class DebugInfo(
+            val valid: Boolean,
+            val effectivePtr: Int,
+            val expectedPtr: Int,
+            val isPerfCalculated: Boolean,
+            val mustCalculate: Boolean
+        )
+    }
+
+    @Serializable
+    data class GraphDebugEdge(val source: GraphDebugNode.Id, val target: GraphDebugNode.Id)
+}
+
+
+@Serializable
+data class Graph(val nodes: List<Node>) {
+
+    private val nodesMap: MutableMap<DataId, DataId> = HashMap()
+
+    private val edgesMap: MutableMap<DataId, DataId> = HashMap()
+
+    private val opsMap: MutableMap<DataId, String> = HashMap()
 
     init {
-        val nodes: MutableMap<String, GraphView.GraphNode> = HashMap()
-        val edges: MutableList<GraphView.GraphEdge> = ArrayList()
-        for (ex in expressions) {
+        for (node in nodes) {
+            val ex = node.expression
+
+            if (ex.isRoot()){
+                continue
+            }
+
             for (input in ex.inputs) {
-                for (i in input.ids){
-                    nodes.computeIfAbsent(i.str) {
-                        GraphView.GraphNode(
-                            GraphView.GraphNode.Id(i.str), "data", i.str
-                        )
-                    }
+                for (i in input.ids) {
+                    nodesMap.computeIfAbsent(i) { i }
                 }
             }
             for (output in ex.outputs) {
-                nodes.computeIfAbsent(output.str) {
-                    GraphView.GraphNode(
-                        GraphView.GraphNode.Id(output.str), "data", output.str
-                    )
-                }
+                nodesMap.computeIfAbsent(output) { output }
             }
 
-            val opId = "${ex.funcId.value}_${ex.outputs[0]}"
-            nodes[opId] =
-                GraphView.GraphNode(
-                    GraphView.GraphNode.Id(opId), "operator", ex.funcId.value
-                )
+            val opId = DataId("${ex.funcId.value}_${ex.outputs[0]}")
+            opsMap[opId] = ex.funcId.value
         }
 
-        for (ex in expressions) {
-            val opId = "${ex.funcId.value}_${ex.outputs[0]}"
-            val operator = nodes[opId]!!
+        for (node in nodes) {
+            val ex = node.expression
+
+            if (ex.isRoot()){
+                continue
+            }
+
+            val opId = DataId("${ex.funcId.value}_${ex.outputs[0]}")
             for (input in ex.inputs) {
-                for(i in input.ids){
-                    edges.add(GraphView.GraphEdge(nodes[i.str]!!.id, operator.id))
+                for (i in input.ids) {
+                    edgesMap[i] = opId
                 }
             }
             for (output in ex.outputs) {
-                edges.add(GraphView.GraphEdge(operator.id, nodes[output.str]!!.id))
+                edgesMap[opId] = output
             }
         }
-        graphView = GraphView(nodes.values.toList(), edges)
     }
 
     fun view(): GraphView {
-        return graphView
+        val ns = nodesMap.values.map {
+            GraphView.GraphNode(GraphView.GraphNode.Id(it.str), "data", it.str)
+        }.toList()
+
+        val os = opsMap.map { (k, v) ->
+            GraphView.GraphNode(GraphView.GraphNode.Id(k.str), "operator", v)
+        }.toList()
+
+        val es = edgesMap.map { (k, v) ->
+            GraphView.GraphEdge(GraphView.GraphNode.Id(k.str), GraphView.GraphNode.Id(v.str))
+        }.toList()
+
+        return GraphView(ns + os, es)
     }
 
+    fun debugView(): GraphDebugView {
+        val cache = nodes.associateBy { it.id.id }.toMap()
+        val ns = nodesMap.values.map {
+            GraphDebugView.GraphDebugNode(
+                GraphDebugView.GraphDebugNode.Id(it.str),
+                "data",
+                it.str,
+                GraphDebugView.GraphDebugNode.DebugInfo(
+                    cache[it]!!.valid,
+                    cache[it]!!.effectivePtr.value,
+                    cache[it]!!.expectedPtr.value,
+                    cache[it]!!.isPerfCalculated,
+                    cache[it]!!.mustCalculate
+                )
+            )
+        }.toList()
+
+        val os = opsMap.map { (k, v) ->
+            GraphDebugView.GraphDebugNode(
+                GraphDebugView.GraphDebugNode.Id(k.str), "operator", v, null
+            )
+        }.toList()
+
+        val es = edgesMap.map { (k, v) ->
+            GraphDebugView.GraphDebugEdge(
+                GraphDebugView.GraphDebugNode.Id(k.str), GraphDebugView.GraphDebugNode.Id(v.str)
+            )
+        }.toList()
+
+        return GraphDebugView(ns + os, es)
+    }
 }

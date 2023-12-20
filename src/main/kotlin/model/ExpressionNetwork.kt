@@ -56,13 +56,32 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun buildGraph(ids: List<DataId>): Graph {
-        val expressions: MutableList<Expression> = ArrayList()
+    suspend fun buildGraph(ids: List<DataId>): GraphView {
+        val nodes: MutableList<Node> = ArrayList()
         for (id in ids) {
-            val node = getNode(id) ?: continue
-            expressions.add(node.expression)
+            val node = nodeRepository.queryByOutput(id) ?: continue
+            nodes.add(node)
         }
-        return Graph(expressions)
+        return Graph(nodes).view()
+    }
+
+    suspend fun buildDebugGraph(ids: List<DataId>): GraphDebugView {
+        val nodes: MutableList<Node> = ArrayList()
+        val inputs = HashSet<DataId>()
+        for (id in ids) {
+            val node = nodeRepository.queryByOutput(id) ?: continue
+            nodes.add(node)
+
+            inputs.addAll(node.expression.inputs.flatMap { it.ids }.toList())
+        }
+        val allInputs = inputs - ids.toSet()
+
+        for (id in allInputs) {
+            val node = nodeRepository.queryByOutput(id) ?: continue
+            nodes.add(node)
+        }
+        
+        return Graph(nodes).debugView()
     }
 
     suspend fun queryExpressionsState(ids: List<DataId>): List<Pair<DataId, String?>> {

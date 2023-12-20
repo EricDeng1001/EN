@@ -42,8 +42,13 @@ fun Route.httpRoutes() {
     get("/graph") {
         val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
             ?: throw IllegalArgumentException("id is required")
-        val graph = ExpressionNetworkImpl.buildGraph(ids)
-        call.respond(graph.view())
+        call.respond(ExpressionNetworkImpl.buildGraph(ids))
+    }
+
+    get("/graph/debug") {
+        val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
+            ?: throw IllegalArgumentException("id is required")
+        call.respond(ExpressionNetworkImpl.buildDebugGraph(ids))
     }
 
     get("/expression/state") {
@@ -99,9 +104,9 @@ fun Route.httpRoutes() {
     post("/failed_run") {
         val res = call.receive<RunErrorResponse>()
         launch {
-            if(res.type == NodeState.FAILED.value){
+            if (res.type == NodeState.FAILED.value) {
                 ExpressionNetworkImpl.failedRun(res.taskId, res.message)
-            }else if(res.type == NodeState.SYSTEM_FAILED.value){
+            } else if (res.type == NodeState.SYSTEM_FAILED.value) {
                 ExpressionNetworkImpl.systemFailedRun(res.taskId, res.message)
             }
         }
