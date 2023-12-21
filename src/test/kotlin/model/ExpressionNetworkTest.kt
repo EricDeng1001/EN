@@ -62,6 +62,10 @@ class MockTaskRepo : TaskRepository {
     }
 
     override suspend fun get(id: TaskId): Task? = idMap[id]
+    override suspend fun getList(ids: List<TaskId>): List<Task> {
+        TODO("Not yet implemented")
+    }
+
     override suspend fun delete(id: TaskId) {
         idMap.remove(id)
     }
@@ -72,16 +76,17 @@ class MockExecutor : Executor {
     lateinit var callback: ExpressionNetwork
     var isSuccess: Boolean = true
 
-    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId) {
+    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId): Boolean {
         Timer().schedule(timerTask {
             runBlocking {
                 if (isSuccess) {
                     callback.succeedRun(withId)
                 } else {
-                    callback.failedRun(withId)
+                    callback.failedRun(withId,"Failed Reason")
                 }
             }
         }, 100) // 主要是为了隔离线程
+        return true
     }
 
     override suspend fun tryCancel(id: TaskId) {
@@ -95,7 +100,7 @@ class MockMQ: MessageQueue {
         return
     }
 
-    override suspend fun pushRunFailed(id: DataId) {
+    override suspend fun pushRunFailed(id: DataId, reason: String) {
         return
     }
 

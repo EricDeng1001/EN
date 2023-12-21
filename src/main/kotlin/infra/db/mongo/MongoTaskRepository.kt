@@ -4,6 +4,7 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.*
 import model.Pointer
 import model.Task
@@ -63,6 +64,11 @@ object MongoTaskRepository : TaskRepository {
     override suspend fun get(id: TaskId): Task? {
         return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(Filters.eq(TaskDO::taskId.name, id))
             .map { it.toModel() }.firstOrNull()
+    }
+
+    override suspend fun getList(ids: List<TaskId>): List<Task> {
+        return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(Filters.`in`(TaskDO::taskId.name, ids))
+            .map { it.toModel() }.toList()
     }
 
     override suspend fun delete(id: TaskId) {

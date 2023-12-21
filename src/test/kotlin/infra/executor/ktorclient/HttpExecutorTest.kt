@@ -25,14 +25,14 @@ class HttpExecutorTest {
 
     private val runRequestBody = RunRequestBody(
         Expression(
-            inputs = listOf(DataId("open"), DataId("close")),
+            inputs = listOf(Input(InputType.List, listOf(DataId("open"), DataId("close")))),
             outputs = listOf(DataId("output")),
             funcId = FuncId("func1"),
             dataflow = "",
             arguments = mapOf("arg1" to Argument(type = "float", value = "10"))
         ), 0, 10, "xxx"
     )
-    private val runResponseBody = RunResponseBody("xxx", true)
+    private val runResponseBody = RunResponseBody( true)
 
     private val tryCancelResponseBody = TryCancelResponseBody("xxx", true)
 

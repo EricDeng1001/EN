@@ -13,6 +13,7 @@ class MongoTaskRepositoryTest {
     private val mongoTaskRepository = MongoTaskRepository
 
     private lateinit var task: Task
+    private lateinit var tasks: MutableMap<TaskId, Task>
 
     @BeforeEach
     fun setUp() {
@@ -24,8 +25,24 @@ class MongoTaskRepositoryTest {
                 funcId = FuncId("add_test"),
                 dataflow = "",
                 arguments = mapOf("const" to Argument("1", "int"))
-            )
+            ),
+            from = Pointer(0),
+            to = Pointer(4840)
         )
+        for (i in 1..4){
+            tasks[i.toString()] = Task(
+                id = "123456789", expression = Expression(
+                    inputs = listOf(Input(type = InputType.DataId, ids = listOf(DataId("open_test"))),
+                        Input(type = InputType.DataId, ids = listOf(DataId("close_test")))),
+                    outputs = listOf(DataId("en_node_mongo_repo_test")),
+                    funcId = FuncId("add_test"),
+                    dataflow = "",
+                    arguments = mapOf("const" to Argument("1", "int"))
+                ),
+                from = Pointer(0),
+                to = Pointer(4840)
+            )
+        }
         save()
     }
 
@@ -38,6 +55,7 @@ class MongoTaskRepositoryTest {
     fun save() {
         runBlocking {
             mongoTaskRepository.save(task)
+            tasks.forEach { mongoTaskRepository.save(it.value)  }
         }
     }
 
@@ -51,6 +69,17 @@ class MongoTaskRepositoryTest {
     }
 
     @Test
+    fun getList() {
+        runBlocking {
+            val ret = mongoTaskRepository.getList(tasks.keys.toList())
+            ret.forEach {
+                assertNotNull(tasks[it.id])
+            }
+        }
+    }
+
+
+    @Test
     fun delete() {
         runBlocking {
 
@@ -58,6 +87,11 @@ class MongoTaskRepositoryTest {
 
             val ret = mongoTaskRepository.get(task.id)
             assertNull(ret)
+        }
+
+        runBlocking {
+            tasks.forEach { mongoTaskRepository.delete(it.key)  }
+            tasks.forEach { assertNull(mongoTaskRepository.get(it.key))  }
         }
     }
 
