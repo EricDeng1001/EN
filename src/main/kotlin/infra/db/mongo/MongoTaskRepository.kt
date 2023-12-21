@@ -5,10 +5,7 @@ import com.mongodb.client.model.ReplaceOptions
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.*
-import model.Pointer
-import model.Task
-import model.TaskId
-import model.TaskRepository
+import model.*
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
 import java.time.LocalDateTime
@@ -68,4 +65,12 @@ object MongoTaskRepository : TaskRepository {
     override suspend fun delete(id: TaskId) {
         MongoConnection.getCollection<TaskDO>(TASKS_TABLE).deleteOne(Filters.eq(TaskDO::taskId.name, id))
     }
+
+    override suspend fun getLatestByDataId(id: DataId): Task? {
+        return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(
+            Filters.`in`("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str))
+            .sort(Filters.eq(TaskDO::start.name, -1)).map { it.toModel() }.firstOrNull()
+    }
+
+
 }

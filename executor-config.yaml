@@ -3,4 +3,4 @@ host: "172.17.100.66"
 port: 50051
 url:
   run: "/executor/expr"
-  try-cancel: "/cancel/{id}"
+  try-cancel: "executor/task/{id}/stop"

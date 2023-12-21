@@ -7,6 +7,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.collections.ArrayList
 
 
@@ -22,6 +23,9 @@ abstract class ExpressionNetwork(
     private val locks: MutableMap<Node.Id, Mutex> = ConcurrentHashMap()
 
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
+
+    private val rerunMap: MutableSet<TaskId> = CopyOnWriteArraySet()
+    private val taskLocks: MutableMap<TaskId, Mutex> = ConcurrentHashMap()
 
     private suspend fun getNode(id: DataId): Node? {
         val node = nodeRepository.queryByOutput(id) ?: return null
@@ -80,7 +84,7 @@ abstract class ExpressionNetwork(
             val node = nodeRepository.queryByOutput(id) ?: continue
             nodes.add(node)
         }
-        
+
         return Graph(nodes).debugView()
     }
 
@@ -248,10 +252,20 @@ abstract class ExpressionNetwork(
     // end 1
     suspend fun succeedRun(id: TaskId) {
         logger.info("succeed run: $id")
-        val task = taskRepository.get(id) ?: return
-        val node = getNode(task.expression.outputs[0])!!
+        val taskMutex = taskLocks.computeIfAbsent(id) { Mutex() }
+        val task: Task?
+        taskMutex.withLock {
+            task = taskRepository.get(id)
+            if (task == null || task.done()) {
+                taskLocks.remove(id)
+                return
+            }
+            task.finish = Clock.System.now()
+            taskRepository.save(task)
+            taskLocks.remove(id)
+        }
+        val node = getNode(task!!.expression.outputs[0])!!
         val mutex = locks[node.id]!!
-        task.finish = Clock.System.now()
         var reset: Boolean
         mutex.withLock {
             node.isRunning = false
@@ -279,19 +293,28 @@ abstract class ExpressionNetwork(
 
         endRun(node)
 
-        taskRepository.save(task)
         for (output in node.ids()) {
             messageQueue.pushRunFinish(output)
         }
+        rerunMap.remove(id)
     }
 
     suspend fun failedRun(id: TaskId, reason: String) {
         logger.info("failed run: $id")
-        val task = taskRepository.get(id) ?: return
-        task.finish = Clock.System.now()
-        task.failedReason = reason
-        taskRepository.save(task)
-        val nodeId = Node.Id(task.expression.outputs[0])
+        val taskMutex = taskLocks.computeIfAbsent(id) { Mutex() }
+        val task: Task?
+        taskMutex.withLock {
+            task = taskRepository.get(id)
+            if (task == null || task.done()) {
+                taskLocks.remove(id)
+                return
+            }
+            task.finish = Clock.System.now()
+            task.failedReason = reason
+            taskRepository.save(task)
+            taskLocks.remove(id)
+        }
+        val nodeId = Node.Id(task!!.expression.outputs[0])
         val node = loadedNodes[nodeId]!!
         val mutex = locks[nodeId]!!
         mutex.withLock {
@@ -301,13 +324,80 @@ abstract class ExpressionNetwork(
         pushFailed(node, reason)
         endRun(node)
         markInvalid(node)
+
+        if (rerunMap.contains(id)) {
+            rerunMap.remove(id)
+            tryRunExpressionNode(node)
+        }
+    }
+
+    suspend fun stopRun(dataId: DataId): Pair<TaskId, Boolean>? {
+        val mutex = locks.computeIfAbsent(NodeId(dataId)) { Mutex() }
+        val task: Task?
+        // 此时不会创建新的任务
+        mutex.withLock {
+            task = taskRepository.getLatestByDataId(dataId)
+            if (task != null) {
+                val taskMutex = taskLocks.computeIfAbsent(task.id) { Mutex() }
+                // 此时任务状态不会因 failed run 或 succeed run 更改
+                taskMutex.withLock {
+                    if (task.done()) {
+                        taskLocks.remove(task.id)
+                        return Pair(task.id, true)
+                    }
+                    try {
+                        if (executor.tryCancel(task.id)) {
+                            taskLocks.remove(task.id)
+                            return Pair(task.id, false)
+                        } else {
+                            // 尝试停止任务失败，手动设置任务状态为失败
+                            task.failedReason = "try cancel failed"
+                        }
+                    } catch (e: Exception) {
+                        // 尝试停止任务出现异常，手动设置任务状态为失败
+                        task.failedReason = "occur exception when try cancel :${e.message}"
+                    }
+                }
+            }
+        }
+
+        return task?.run {
+            systemFailedRun(id, failedReason ?: "stop failed")
+            Pair(id, true)
+        }
+    }
+
+    suspend fun rerun(dataId: DataId) {
+        val stop = stopRun(dataId)
+        if (stop != null && !stop.second) {
+            val taskId = stop.first
+            val mutex = taskLocks.computeIfAbsent(taskId) { Mutex() }
+            mutex.withLock {
+                val task = taskRepository.get(taskId)
+                if (task != null && !task.done()) {
+                    rerunMap.add(taskId)
+                    return
+                }
+                taskLocks.remove(taskId)
+            }
+        }
+        runExpression(dataId)
     }
 
     suspend fun systemFailedRun(id: TaskId, reason: String) {
         logger.info("system failed run: $id")
-        val task = taskRepository.get(id) ?: return
-        val node = getNode(task.expression.outputs[0])!!
-        systemFailed(task, node, reason)
+        val mutex = taskLocks.computeIfAbsent(id) { Mutex() }
+        val task: Task?
+        mutex.withLock {
+            task = taskRepository.get(id)
+            if (task == null || task.done()) {
+                taskLocks.remove(id)
+                return
+            }
+            val node = getNode(task.expression.outputs[0])!!
+            systemFailed(task, node, reason)
+            taskLocks.remove(id)
+        }
     }
 
     private suspend fun systemFailed(task: Task, node: Node, reason: String) {
@@ -436,18 +526,14 @@ abstract class ExpressionNetwork(
     }
 
     private tailrec suspend fun tryBatchInternal(
-        batchList: ArrayList<Expression>,
-        node: Node,
-        to: Pointer
+        batchList: ArrayList<Expression>, node: Node, to: Pointer
     ) {
         if (upstream(node).filter { it != node }.map { it.effectivePtr >= to }.fold(true, Boolean::and)) {
             val downstream = downstream(node)
             val first = downstream.first()
             batchList.add(node.expression)
             node.expectedPtr = to
-            if (downstream.size == 1
-                && !node.mustCalculate
-            ) {
+            if (downstream.size == 1 && !node.mustCalculate) {
                 tryBatchInternal(batchList, first, to)
             }
         }

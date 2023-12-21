@@ -34,7 +34,7 @@ data class RunRequestBody(val expression: Expression, val start: Int, val end: I
 data class RunResponseBody(val started: Boolean)
 
 @Serializable
-data class TryCancelResponseBody(val id: TaskId, val success: Boolean)
+data class TryCancelResponseBody(val id: TaskId?)
 
 object HttpExecutor : Executor {
 
@@ -84,7 +84,7 @@ object HttpExecutor : Executor {
         return body.started
     }
 
-    override suspend fun tryCancel(id: TaskId) {
+    override suspend fun tryCancel(id: TaskId): Boolean {
         val url = URLBuilder(
             protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
             host = config.host,
@@ -98,5 +98,7 @@ object HttpExecutor : Executor {
             throw Exception("tryCancel failed: ${response.status}")
         }
         val body = response.body<TryCancelResponseBody>()
+
+        return body.id != null
     }
 }

@@ -66,26 +66,31 @@ class MockTaskRepo : TaskRepository {
         idMap.remove(id)
     }
 
+    override suspend fun getLatestByDataId(id: DataId): Task? {
+        TODO("Not yet implemented")
+    }
+
 }
 
 class MockExecutor : Executor {
     lateinit var callback: ExpressionNetwork
     var isSuccess: Boolean = true
 
-    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId) {
+    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId):Boolean {
         Timer().schedule(timerTask {
             runBlocking {
                 if (isSuccess) {
                     callback.succeedRun(withId)
                 } else {
-                    callback.failedRun(withId)
+                    callback.failedRun(withId, "")
                 }
             }
         }, 100) // 主要是为了隔离线程
+        return true
     }
 
-    override suspend fun tryCancel(id: TaskId) {
-
+    override suspend fun tryCancel(id: TaskId): Boolean {
+        return true
     }
 
 }
@@ -95,8 +100,8 @@ class MockMQ: MessageQueue {
         return
     }
 
-    override suspend fun pushRunFailed(id: DataId) {
-        return
+    override suspend fun pushRunFailed(id: DataId, reason: String) {
+        TODO("Not yet implemented")
     }
 
     override suspend fun pushRunFinish(id: DataId) {

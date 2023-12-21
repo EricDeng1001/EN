@@ -13,4 +13,6 @@ data class Task(
     var finish: Instant = Instant.DISTANT_PAST,
     var failedReason: String? = null
 ) {
+
+    fun done() = finish >= start
 }

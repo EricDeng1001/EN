@@ -113,6 +113,16 @@ fun Route.httpRoutes() {
         call.respond(res)
     }
 
+    post("/stop_run/{data_id}") {
+        val dataId = call.parameters["data_id"] ?: throw IllegalArgumentException("data_id is required")
+        ExpressionNetworkImpl.stopRun(DataId(dataId))
+    }
+
+    post ("/rerun/{data_id}") {
+        val dataId = call.parameters["data_id"] ?: throw IllegalArgumentException("data_id is required")
+        ExpressionNetworkImpl.rerun(DataId(dataId))
+    }
+
     post("/markMust") {
         val ids = call.receive<List<DataId>>()
         ExpressionNetworkImpl.markMustCalc(ids)
