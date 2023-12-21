@@ -80,7 +80,7 @@ abstract class ExpressionNetwork(
             val node = nodeRepository.queryByOutput(id) ?: continue
             nodes.add(node)
         }
-        
+
         return Graph(nodes).debugView()
     }
 
@@ -164,9 +164,11 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun runRootNode(node: Node, effectivePtr: Pointer) {
+        logger.info("${node.id} run: , effective ptr: $effectivePtr")
         node.effectivePtr = effectivePtr
         node.expectedPtr = node.effectivePtr
         nodeRepository.save(node)
+        logger.info("${node.id} update downstream now! ")
         updateDownstream(node)
     }
 
@@ -175,6 +177,7 @@ abstract class ExpressionNetwork(
         if (!node.valid) {
             endRun(node)
             pushFailed(node, "expression not valid due to upstream invalid or self invalid")
+            logger.info("${node.id} invalid")
             return
         }
         val mutex =
@@ -182,6 +185,7 @@ abstract class ExpressionNetwork(
 
         mutex.withLock {
             if (node.isRunning) { // somehow double run, doesn't matter, we can safe ignore this
+                logger.info("${node.id} is running")
                 return
             }
 
@@ -195,6 +199,7 @@ abstract class ExpressionNetwork(
                         logger.error("calculate performance error: $e")
                     }
                 }
+                logger.info("${node.id} should not run")
                 endRun(node)
                 return
             }
@@ -229,19 +234,32 @@ abstract class ExpressionNetwork(
 
 
     private suspend fun updateDownstream(root: Node) {
-        for (node in downstream(root.expression)) {
+        val down = downstream(root.expression)
+        logger.info("${root.id} down size: ${down.size}")
+        for (node in down) {
+            logger.info("${root.id} update downstream: $node")
             node.expectedPtr = findExpectedPtr(node.expression)
+            logger.info("${node.id} expected ptr: ${node.expectedPtr}")
             nodeRepository.save(node)  // update expected ptr
             tryRunExpressionNode(node) // try run (this start a new run session)
+            logger.info("${node.id} try run done")
         }
     }
 
     private suspend fun findExpectedPtr(expression: Expression): Pointer {
         val nodes = upstream(expression)
+        logger.info("${expression.outputs[0]} find expected ptr, upstream size: ${nodes.size}")
         var expectedPtr: Pointer = Pointer.MAX
         for (node in nodes) {
             expectedPtr = minOf(node.effectivePtr, expectedPtr)
+            logger.info(
+                "${expression.outputs[0]} update expected ptr by ${node.id} effective ptr: ${
+                    node
+                        .effectivePtr
+                }"
+            )
         }
+        logger.info("${expression.outputs[0]} find expected ptr, expected ptr: $expectedPtr")
         return expectedPtr
     }
 
