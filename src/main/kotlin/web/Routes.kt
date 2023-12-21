@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
+import web.plugin.adminCheck
 
 @Serializable
 data class RunRootRequest(
@@ -117,6 +118,18 @@ fun Route.httpRoutes() {
         val ids = call.receive<List<DataId>>()
         ExpressionNetworkImpl.markMustCalc(ids)
         call.respond(HttpStatusCode.OK)
+    }
+}
+
+fun Route.adminHttpRoutes(){
+    adminCheck {
+        get("/tasks") {
+            val ids = call.receive<List<TaskId>>()
+            if (ids.isEmpty()){
+                throw IllegalArgumentException("ids is required")
+            }
+            call.respond(HttpStatusCode.OK, ExpressionNetworkImpl.getTasks(ids))
+        }
     }
 }
 

@@ -6,6 +6,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import kotlinx.serialization.json.Json
+import web.adminHttpRoutes
 import web.configureStatusPages
 import web.httpRoutes
 import web.websocketRoutes
@@ -46,5 +47,6 @@ fun Application.configureRouting() {
     routing {
         httpRoutes()
         websocketRoutes()
+        adminHttpRoutes()
     }
 }
