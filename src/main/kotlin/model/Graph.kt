@@ -35,7 +35,8 @@ data class GraphDebugView(val nodes: List<GraphDebugNode>, val edges: List<Graph
             val effectivePtr: Int,
             val expectedPtr: Int,
             val isPerfCalculated: Boolean,
-            val mustCalculate: Boolean
+            val mustCalculate: Boolean,
+            val expression: Expression
         )
     }
 
@@ -121,7 +122,8 @@ data class Graph(val nodes: List<Node>) {
                     cache[it]!!.effectivePtr.value,
                     cache[it]!!.expectedPtr.value,
                     cache[it]!!.isPerfCalculated,
-                    cache[it]!!.mustCalculate
+                    cache[it]!!.mustCalculate,
+                    cache[it]!!.expression
                 )
             )
         }.toList()
