@@ -230,7 +230,9 @@ abstract class ExpressionNetwork(
 
     private suspend fun updateDownstream(root: Node) {
         val downstreams = downstream(root)
-        logger.debug("downstreams: {}", downstreams)
+        logger.debug("{} downstream size: {}, {}", root.id.id.str, downstreams.size, downstreams.map {
+            it.expression.outputs[0].str
+        }.toList())
         for (node in downstreams) {
             val newPtr = if (node.expression.inputs.size == 1) {
                 root.effectivePtr
