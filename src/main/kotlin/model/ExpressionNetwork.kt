@@ -237,10 +237,16 @@ abstract class ExpressionNetwork(
             val newPtr = if (node.expression.inputs.size == 1) {
                 root.effectivePtr
             } else {
-                logger.debug("findExp")
+                logger.debug("{} -> {} findExp", root.id.id.str, node.id.id.str)
                 findExpectedPtr(node.expression)
             }
-            logger.debug("inspecting: {}, exp: {}, newPtr: {}", node.id, node.expectedPtr, newPtr)
+            logger.debug(
+                "{} inspecting: {}, exp: {}, newPtr: {}",
+                root.id.id.str,
+                node.id.id.str,
+                node.expectedPtr.value,
+                newPtr.value
+            )
             if (node.expectedPtr != newPtr) {
                 logger.debug("{} updated downstream {} exp to {}", root.id.id.str, node.id, newPtr)
                 node.expectedPtr = newPtr
