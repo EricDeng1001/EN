@@ -171,21 +171,28 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun tryRunExpressionNode(node: Node) {
+        logger.debug("{} enter tryRunExpressionNode", node.id.id.str)
         // end 3
         if (!node.valid) {
+            logger.debug("{} invalid", node.id.id.str)
             endRun(node)
             pushFailed(node, "expression not valid due to upstream invalid or self invalid")
             return
         }
+
+        logger.debug("{} before acquire lock", node.id.id.str)
         val mutex =
             locks[node.id]!! // must exists, or the code is wrong, for tryRun should ways happens after get/load node
 
+        logger.debug("{} after acquire lock", node.id.id.str)
         mutex.withLock {
             if (node.isRunning) { // somehow double run, doesn't matter, we can safe ignore this
+                logger.debug("{} is running", node.id.id.str)
                 return
             }
 
             if (!node.shouldRun()) {
+                logger.debug("{} should not run", node.id.id.str)
                 if (node.isPerfCalculated.not() && node.effectivePtr != Pointer.ZERO) {
                     try {
                         performanceService.calculate(node.expression.outputs[0])
@@ -208,7 +215,7 @@ abstract class ExpressionNetwork(
                 to = node.expectedPtr
             )
             try {
-                logger.info("try to tun expression node: $task")
+                logger.info("try to run expression node: $task")
                 val started =
                     executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 if (started) {
