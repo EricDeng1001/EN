@@ -171,66 +171,70 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun tryRunExpressionNode(node: Node) {
-        logger.debug("{} enter tryRunExpressionNode", node.id.id.str)
-        // end 3
-        if (!node.valid) {
-            logger.debug("{} invalid", node.id.id.str)
-            endRun(node)
-            pushFailed(node, "expression not valid due to upstream invalid or self invalid")
-            return
-        }
-
-        logger.debug("{} before acquire lock", node.id.id.str)
-        val mutex =
-            locks[node.id]!! // must exists, or the code is wrong, for tryRun should ways happens after get/load node
-
-        logger.debug("{} after acquire lock", node.id.id.str)
-        mutex.withLock {
-            if (node.isRunning) { // somehow double run, doesn't matter, we can safe ignore this
-                logger.debug("{} is running", node.id.id.str)
-                return
-            }
-
-            if (!node.shouldRun()) {
-                logger.debug("{} should not run", node.id.id.str)
-                if (node.isPerfCalculated.not() && node.effectivePtr != Pointer.ZERO) {
-                    try {
-                        performanceService.calculate(node.expression.outputs[0])
-                        node.isPerfCalculated = true
-                        nodeRepository.save(node)
-                    } catch (e: Exception) {
-                        logger.error("calculate performance error: $e")
-                    }
-                }
+        try {
+            logger.debug("{} enter tryRunExpressionNode", node.id.id.str)
+            // end 3
+            if (!node.valid) {
+                logger.debug("{} invalid", node.id.id.str)
                 endRun(node)
+                pushFailed(node, "expression not valid due to upstream invalid or self invalid")
                 return
             }
 
+            logger.debug("{} before acquire lock", node.id.id.str)
+            val mutex =
+                locks[node.id]!! // must exists, or the code is wrong, for tryRun should ways happens after get/load node
 
-            val task = Task(
-                id = genId(),
-                expression = node.expression,
-                start = Clock.System.now(),
-                from = node.effectivePtr,
-                to = node.expectedPtr
-            )
-            try {
-                logger.info("try to run expression node: $task")
-                val started =
-                    executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
-                if (started) {
-                    states[node.id] = NodeState.RUNNING
-                    pushRunning(node)
-                    node.isRunning = true
-                    taskRepository.save(task)
-                } else {
-                    task.failedReason = "insufficient data to run"
-                    taskRepository.save(task)
+            logger.debug("{} after acquire lock", node.id.id.str)
+            mutex.withLock {
+                if (node.isRunning) { // somehow double run, doesn't matter, we can safe ignore this
+                    logger.debug("{} is running", node.id.id.str)
+                    return
                 }
-            } catch (e: Exception) {
-                logger.error("try to run expression node err: $e")
-                systemFailed(task, node, e.message.toString())
+
+                if (!node.shouldRun()) {
+                    logger.debug("{} should not run", node.id.id.str)
+                    if (node.isPerfCalculated.not() && node.effectivePtr != Pointer.ZERO) {
+                        try {
+                            performanceService.calculate(node.expression.outputs[0])
+                            node.isPerfCalculated = true
+                            nodeRepository.save(node)
+                        } catch (e: Exception) {
+                            logger.error("calculate performance error: $e")
+                        }
+                    }
+                    endRun(node)
+                    return
+                }
+
+
+                val task = Task(
+                    id = genId(),
+                    expression = node.expression,
+                    start = Clock.System.now(),
+                    from = node.effectivePtr,
+                    to = node.expectedPtr
+                )
+                try {
+                    logger.info("try to run expression node: $task")
+                    val started =
+                        executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                    if (started) {
+                        states[node.id] = NodeState.RUNNING
+                        pushRunning(node)
+                        node.isRunning = true
+                        taskRepository.save(task)
+                    } else {
+                        task.failedReason = "insufficient data to run"
+                        taskRepository.save(task)
+                    }
+                } catch (e: Exception) {
+                    logger.error("try to run expression node err: $e")
+                    systemFailed(task, node, e.message.toString())
+                }
             }
+        } catch (e: Exception) {
+            logger.error("${node.id.id.str} tryRunExpressionNode error: $e")
         }
     }
 
