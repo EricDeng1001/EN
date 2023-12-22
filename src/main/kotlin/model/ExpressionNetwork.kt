@@ -94,7 +94,7 @@ abstract class ExpressionNetwork(
             if (state == null) {
                 val node = nodeRepository.queryByOutput(id)
                 if (node == null) {
-                    res.add(Pair(id, null))
+                    res.add(id to null)
                 } else {
                     res.add(
                         id to if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value
