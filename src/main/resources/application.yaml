@@ -3,4 +3,4 @@ ktor:
     modules:
       - MainKt.module
   deployment:
-    port: 8081
+    port: 8080
