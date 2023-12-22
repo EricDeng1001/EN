@@ -134,7 +134,7 @@ abstract class ExpressionNetwork(
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
             val save = node.effectivePtr
-            dfs(node) {
+            downstream(node) {
                 effectivePtr = resetPtr
                 nodeRepository.save(this)
             }
@@ -143,7 +143,7 @@ abstract class ExpressionNetwork(
     }
 
 
-    private suspend fun dfs(node: Node, action: suspend Node.() -> Unit) {
+    private suspend fun downstream(node: Node, action: suspend Node.() -> Unit) {
         val toVisit = ArrayList<Node>()
         toVisit.add(node)
         while (toVisit.isNotEmpty()) {
