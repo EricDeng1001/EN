@@ -240,7 +240,7 @@ abstract class ExpressionNetwork(
                 findExpectedPtr(node.expression)
             }
             if (node.expectedPtr != newPtr) {
-                logger.debug("updated downstream {} exp to {}", node.id, newPtr)
+                logger.debug("{} updated downstream {} exp to {}",root.id.id.str, node.id, newPtr)
                 node.expectedPtr = newPtr
                 nodeRepository.save(node)  // update expected ptr
             }
