@@ -24,6 +24,10 @@ abstract class ExpressionNetwork(
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
 
     private suspend fun getNode(id: DataId): Node? {
+        val it = loadedNodes[NodeId(id)]
+        if (it != null) {
+            return it
+        }
         val node = nodeRepository.queryByOutput(id) ?: return null
         return saveToLoaded(node)
     }
@@ -80,7 +84,7 @@ abstract class ExpressionNetwork(
             val node = nodeRepository.queryByOutput(id) ?: continue
             nodes.add(node)
         }
-        
+
         return Graph(nodes).debugView()
     }
 
