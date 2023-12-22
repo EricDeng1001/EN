@@ -230,13 +230,18 @@ abstract class ExpressionNetwork(
 
     private suspend fun updateDownstream(root: Node) {
         val downstreams = downstream(root)
+        logger.debug("downstreams: {}", downstreams)
         for (node in downstreams) {
+            val oldPtr = node.expectedPtr
             if (node.expression.inputs.size == 1) {
                 node.expectedPtr = root.effectivePtr
             } else {
                 node.expectedPtr = findExpectedPtr(node.expression)
             }
-            nodeRepository.save(node)  // update expected ptr
+            if (node.expectedPtr != oldPtr) {
+                logger.debug("updated downstream exp: {}", node.id)
+                nodeRepository.save(node)  // update expected ptr
+            }
         }
         for (node in downstreams) {
             tryRunExpressionNode(node) // try run (this start a new run session)
