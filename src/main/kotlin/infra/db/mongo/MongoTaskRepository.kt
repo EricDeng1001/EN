@@ -6,10 +6,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.*
-import model.Pointer
-import model.Task
-import model.TaskId
-import model.TaskRepository
+import model.*
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
 import java.time.LocalDateTime
@@ -66,8 +63,9 @@ object MongoTaskRepository : TaskRepository {
             .map { it.toModel() }.firstOrNull()
     }
 
-    override suspend fun getList(ids: List<TaskId>): List<Task> {
-        return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(Filters.`in`(TaskDO::taskId.name, ids))
+    override suspend fun getListByDataIds(ids: List<String>): List<Task> {
+        return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(Filters.`in`
+            ("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", ids))
             .map { it.toModel() }.toList()
     }
 

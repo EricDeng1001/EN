@@ -13,7 +13,7 @@ class MongoTaskRepositoryTest {
     private val mongoTaskRepository = MongoTaskRepository
 
     private lateinit var task: Task
-    private lateinit var tasks: MutableMap<TaskId, Task>
+    private lateinit var tasks: MutableMap<DataId, Task>
 
     @BeforeEach
     fun setUp() {
@@ -30,11 +30,12 @@ class MongoTaskRepositoryTest {
             to = Pointer(4840)
         )
         for (i in 1..4){
-            tasks[i.toString()] = Task(
-                id = "123456789", expression = Expression(
+            val key = DataId(i.toString())
+            tasks[key] = Task(
+                id = key.str, expression = Expression(
                     inputs = listOf(Input(type = InputType.DataId, ids = listOf(DataId("open_test"))),
                         Input(type = InputType.DataId, ids = listOf(DataId("close_test")))),
-                    outputs = listOf(DataId("en_node_mongo_repo_test")),
+                    outputs = listOf(key),
                     funcId = FuncId("add_test"),
                     dataflow = "",
                     arguments = mapOf("const" to Argument("1", "int"))
@@ -71,9 +72,9 @@ class MongoTaskRepositoryTest {
     @Test
     fun getList() {
         runBlocking {
-            val ret = mongoTaskRepository.getList(tasks.keys.toList())
+            val ret = mongoTaskRepository.getListByDataIds(tasks.keys.map { it.str })
             ret.forEach {
-                assertNotNull(tasks[it.id])
+                assertNotNull(tasks[it.expression.outputs[0]])
             }
         }
     }
@@ -90,8 +91,8 @@ class MongoTaskRepositoryTest {
         }
 
         runBlocking {
-            tasks.forEach { mongoTaskRepository.delete(it.key)  }
-            tasks.forEach { assertNull(mongoTaskRepository.get(it.key))  }
+            tasks.forEach { mongoTaskRepository.delete(it.key.str)  }
+            tasks.forEach { assertNull(mongoTaskRepository.get(it.key.str))  }
         }
     }
 

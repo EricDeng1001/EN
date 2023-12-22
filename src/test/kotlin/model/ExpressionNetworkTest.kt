@@ -62,7 +62,7 @@ class MockTaskRepo : TaskRepository {
     }
 
     override suspend fun get(id: TaskId): Task? = idMap[id]
-    override suspend fun getList(ids: List<TaskId>): List<Task> {
+    override suspend fun getListByDataIds(ids: List<String>): List<Task> {
         TODO("Not yet implemented")
     }
 
