@@ -234,6 +234,7 @@ abstract class ExpressionNetwork(
             it.expression.outputs[0].str
         }.toList())
         for (node in downstreams) {
+            logger.debug("inspecting: {}", node.id)
             val newPtr = if (node.expression.inputs.size == 1) {
                 root.effectivePtr
             } else {
