@@ -38,7 +38,7 @@ fun Route.adminCheck(callback: Route.() -> Unit): Route {
             return@intercept
         }
 
-        logger.info("Path: ${call.request.path()}, HTTPMethod: ${call.request.httpMethod}")
+        logger.info("Path: ${call.request.path()}, HTTPMethod: ${call.request.httpMethod}, User: ${user.email}")
     }
 
     // Configure this route with the block provided by the user
