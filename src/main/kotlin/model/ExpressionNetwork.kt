@@ -97,26 +97,22 @@ abstract class ExpressionNetwork(
                     res.add(Pair(id, null))
                 } else {
                     res.add(
-                        Pair(
-                            id, if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value
-                            else if (!node.valid) NodeState.FAILED.value else null
-                        )
+                        id to if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value
+                        else if (!node.valid) NodeState.FAILED.value else null
                     )
                 }
             } else {
                 if (state == NodeState.SYSTEM_FAILED) {
                     val node = nodeRepository.queryByOutput(id)
                     if (node == null) {
-                        res.add(Pair(id, null))
+                        res.add(id to null)
                     } else {
                         res.add(
-                            Pair(
-                                id, if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value else null
-                            )
+                            id to if (node.effectivePtr > Pointer.ZERO) NodeState.FINISHED.value else null
                         )
                     }
                 } else {
-                    res.add(Pair(id, state.value))
+                    res.add(id to state.value)
                 }
             }
         }
