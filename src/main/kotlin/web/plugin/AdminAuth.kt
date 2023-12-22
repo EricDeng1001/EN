@@ -6,13 +6,9 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import infra.HttpHorizonService
 import io.ktor.server.routing.*
-import io.ktor.util.*
-import model.User
 import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("AccessInfo")
-
-val USER_KEY = AttributeKey<User>("me")
 
 
 fun Route.adminCheck(callback: Route.() -> Unit): Route {
@@ -24,22 +20,17 @@ fun Route.adminCheck(callback: Route.() -> Unit): Route {
 
     // Intercepts calls from this route at the features step
     adminRouteSelector.intercept(ApplicationCallPipeline.Call) {
-        val user: User?
-        if (!call.attributes.contains(USER_KEY)) {
-            // query token
-            val token = call.request.headers["Authorization"]
-            if (token.isNullOrBlank()) {
-                call.respond(HttpStatusCode.Unauthorized)
-                return@intercept
-            }
-            user = HttpHorizonService.queryUserInfoByToken(token)
-            if (user == null) {
-                call.respond(HttpStatusCode.Unauthorized)
-                return@intercept
-            }
-            call.attributes.put(USER_KEY, user)
-        } else {
-            user = call.attributes[USER_KEY]
+
+        // query token
+        val token = call.request.headers["Authorization"]
+        if (token.isNullOrBlank()) {
+            call.respond(HttpStatusCode.Unauthorized, "token is null")
+            return@intercept
+        }
+        val user = HttpHorizonService.queryUserInfoByToken(token)
+        if (user == null) {
+            call.respond(HttpStatusCode.Unauthorized, "no user")
+            return@intercept
         }
 
         if (!user.isAdmin()) {
@@ -47,7 +38,7 @@ fun Route.adminCheck(callback: Route.() -> Unit): Route {
             return@intercept
         }
 
-        logger.info("Path: ${call.request.path()}, HTTPMethod: ${call.request.httpMethod}, User: ${user.email}")
+        logger.info("Path: ${call.request.path()}, HTTPMethod: ${call.request.httpMethod}")
     }
 
     // Configure this route with the block provided by the user

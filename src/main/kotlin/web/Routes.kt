@@ -124,10 +124,8 @@ fun Route.httpRoutes() {
 fun Route.adminHttpRoutes(){
     adminCheck {
         get("/tasks") {
-            val ids = call.receive<List<TaskId>>()
-            if (ids.isEmpty()){
-                throw IllegalArgumentException("ids is required")
-            }
+            val ids: List<TaskId> = call.request.queryParameters.getAll("id")?.map { it }
+                ?: throw IllegalArgumentException("id is required")
             call.respond(HttpStatusCode.OK, ExpressionNetworkImpl.getTasks(ids))
         }
     }
