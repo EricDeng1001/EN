@@ -232,14 +232,15 @@ abstract class ExpressionNetwork(
         val downstreams = downstream(root)
         logger.debug("downstreams: {}", downstreams)
         for (node in downstreams) {
-            val oldPtr = node.expectedPtr
+            var newPtr: Pointer
             if (node.expression.inputs.size == 1) {
-                node.expectedPtr = root.effectivePtr
+                newPtr = root.effectivePtr
             } else {
-                node.expectedPtr = findExpectedPtr(node.expression)
+                newPtr = findExpectedPtr(node.expression)
             }
-            if (node.expectedPtr != oldPtr) {
-                logger.debug("updated downstream exp: {}", node.id)
+            if (node.expectedPtr != newPtr) {
+                logger.debug("updated downstream {} exp to {}", node.id, newPtr)
+                node.expectedPtr = newPtr
                 nodeRepository.save(node)  // update expected ptr
             }
         }
