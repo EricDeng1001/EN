@@ -230,7 +230,11 @@ abstract class ExpressionNetwork(
 
     private suspend fun updateDownstream(root: Node) {
         for (node in downstream(root.expression)) {
-            node.expectedPtr = findExpectedPtr(node.expression)
+            if (node.expression.inputs.size == 1) {
+                node.expectedPtr = root.effectivePtr
+            } else {
+                node.expectedPtr = findExpectedPtr(node.expression)
+            }
             nodeRepository.save(node)  // update expected ptr
             tryRunExpressionNode(node) // try run (this start a new run session)
         }
