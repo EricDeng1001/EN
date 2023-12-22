@@ -169,7 +169,7 @@ abstract class ExpressionNetwork(
 
     private suspend fun runRootNode(node: Node, effectivePtr: Pointer) {
         node.effectivePtr = effectivePtr
-        node.expectedPtr = node.effectivePtr
+        node.expectedPtr = effectivePtr
         nodeRepository.save(node)
         updateDownstream(node)
     }
