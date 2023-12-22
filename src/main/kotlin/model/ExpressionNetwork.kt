@@ -209,13 +209,13 @@ abstract class ExpressionNetwork(
             )
             try {
                 logger.info("try to tun expression node: $task")
-                taskRepository.save(task)
                 val started =
                     executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
                 if (started) {
                     states[node.id] = NodeState.RUNNING
                     pushRunning(node)
                     node.isRunning = true
+                    taskRepository.save(task)
                 } else {
                     task.failedReason = "insufficient data to run"
                     taskRepository.save(task)
@@ -229,13 +229,16 @@ abstract class ExpressionNetwork(
 
 
     private suspend fun updateDownstream(root: Node) {
-        for (node in downstream(root.expression)) {
+        val downstreams = downstream(root)
+        for (node in downstreams) {
             if (node.expression.inputs.size == 1) {
                 node.expectedPtr = root.effectivePtr
             } else {
                 node.expectedPtr = findExpectedPtr(node.expression)
             }
             nodeRepository.save(node)  // update expected ptr
+        }
+        for (node in downstreams) {
             tryRunExpressionNode(node) // try run (this start a new run session)
         }
     }
