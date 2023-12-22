@@ -7,7 +7,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.ArrayList
 
 
 abstract class ExpressionNetwork(
@@ -137,13 +136,14 @@ abstract class ExpressionNetwork(
             val save = node.effectivePtr
             dfs(node) {
                 effectivePtr = resetPtr
+                nodeRepository.save(this)
             }
             runRootNode(node, save)
         }
     }
 
 
-    private suspend fun dfs(node: Node, action: Node.() -> Unit) {
+    private suspend fun dfs(node: Node, action: suspend Node.() -> Unit) {
         val toVisit = ArrayList<Node>()
         toVisit.add(node)
         while (toVisit.isNotEmpty()) {
