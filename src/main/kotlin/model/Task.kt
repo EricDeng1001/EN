@@ -13,4 +13,5 @@ data class Task(
     var finish: Instant = Instant.DISTANT_PAST,
     var failedReason: String? = null
 ) {
+    val nodeId get() = expression.outputs[0]
 }

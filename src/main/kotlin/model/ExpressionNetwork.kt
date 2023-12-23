@@ -18,39 +18,17 @@ abstract class ExpressionNetwork(
     private val performanceService: PerformanceService
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
-    private val loadedNodes: MutableMap<Node.Id, Node> = ConcurrentHashMap()
     private val locks: MutableMap<Node.Id, Mutex> = ConcurrentHashMap()
 
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
 
     private suspend fun getNode(id: DataId): Node? {
-        val it = loadedNodes[NodeId(id)]
-        if (it != null) {
-            return it
-        }
-        val node = nodeRepository.queryByOutput(id) ?: return null
-        return saveToLoaded(node)
+        return nodeRepository.queryByOutput(id)
     }
 
-    private suspend fun findNodeByInput(id: DataId): List<Node> {
-        val nodes = nodeRepository.queryByInput(id)
-        return nodes.map { saveToLoaded(it) }
+    private suspend fun findNodeByInput(id: DataId): Set<Node> {
+        return nodeRepository.queryByInput(id)
     }
-
-    private suspend fun saveToLoaded(node: Node): Node {
-        var it = node
-        val mutex = locks.computeIfAbsent(it.id) { Mutex() }
-        mutex.withLock {
-            val loadedNode = loadedNodes[it.id]
-            if (loadedNode != null) {
-                it = loadedNode
-            } else {
-                loadedNodes[it.id] = it
-            }
-            return it
-        }
-    }
-
 
     suspend fun markMustCalc(ids: List<DataId>) {
         for (id in ids) {
@@ -123,6 +101,13 @@ abstract class ExpressionNetwork(
     suspend fun updateRoot(id: DataId, effectivePtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
+            runRootNodeSafe(node, effectivePtr)
+        }
+    }
+
+    private suspend fun runRootNodeSafe(node: Node, effectivePtr: Pointer) {
+        val lock = getLock(node)
+        lock.withLock {
             runRootNode(node, effectivePtr)
         }
     }
@@ -131,23 +116,29 @@ abstract class ExpressionNetwork(
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
             val save = node.effectivePtr
-            downstream(node) {
-                effectivePtr = resetPtr
-                nodeRepository.save(this)
+            downstreamAll(node) {
+                it.effectivePtr = resetPtr
+                nodeRepository.save(it)
             }
-            runRootNode(node, save)
+            runRootNodeSafe(node, save)
         }
     }
 
 
-    private suspend fun downstream(node: Node, action: suspend Node.() -> Unit) {
+    private suspend inline fun downstreamAll(node: Node, action: (Node) -> Unit) {
         val toVisit = ArrayList<Node>()
+        val visited = HashSet<Node>()
         toVisit.add(node)
         while (toVisit.isNotEmpty()) {
             val n = toVisit.first()
             toVisit.remove(n)
-            toVisit.addAll(downstream(n))
-            n.action()
+            visited.add(n)
+            for (d in downstreamOneLevel(n)) {
+                if (!visited.contains(d)) {
+                    toVisit.add(n)
+                }
+            }
+            action(n)
         }
     }
 
@@ -171,111 +162,92 @@ abstract class ExpressionNetwork(
         updateDownstream(node)
     }
 
+    private suspend fun updateDownstream(root: Node) {
+        val nextLevel = downstreamOneLevel(root)
+        logger.debug("{} downstream size: {}, {}", root.idStr, nextLevel.size, nextLevel.map {
+            it.expression.outputs[0].str
+        }.toList())
+        runBlocking {
+            for (node in nextLevel) {
+                val newPtr = if (node.expression.inputs.size == 1) {
+                    root.effectivePtr
+                } else {
+                    logger.debug("{} -> {} findExp", root.idStr, node.idStr)
+                    findExpectedPtr(node.expression)
+                }
+                logger.debug(
+                    "{} inspecting: {}, exp: {}, newPtr: {}",
+                    root.idStr,
+                    node.idStr,
+                    node.expectedPtr.value,
+                    newPtr.value
+                )
+                // this check prevents double run
+                if (newPtr != root.effectivePtr) { // not this update
+                    logger.warn("a double parent concurrent update happens, and node info leaked")
+                    continue
+                }
+                if (node.expectedPtr != newPtr) {
+                    logger.debug("{} updated downstream {} exp to {}", root.idStr, node.idStr, newPtr)
+                    node.expectedPtr = newPtr
+                    nodeRepository.save(node)  // update expected ptr
+                    launch {
+                        tryRunExpressionNode(node) // try run (this start a new run session)
+                    }
+                }
+            }
+        }
+    }
+
     private suspend fun tryRunExpressionNode(node: Node) {
         try {
-            logger.debug("{} enter tryRunExpressionNode", node.id.id.str)
-            // end 3
+            logger.debug("{} enter tryRunExpressionNode", node.idStr)
+
             if (!node.valid) {
-                logger.debug("{} invalid", node.id.id.str)
-                endRun(node)
+                logger.debug("{} invalid", node.idStr)
                 pushFailed(node, "expression not valid due to upstream invalid or self invalid")
                 return
             }
 
-            logger.debug("{} before acquire lock", node.id.id.str)
-            val mutex =
-                locks[node.id]!! // must exists, or the code is wrong, for tryRun should ways happens after get/load node
-
-            logger.debug("{} after acquire lock", node.id.id.str)
-            mutex.withLock {
-                if (node.isRunning) { // somehow double run, doesn't matter, we can safe ignore this
-                    logger.debug("{} is running", node.id.id.str)
-                    return
+            if (!node.shouldRun()) {
+                logger.debug("{} should not run", node.idStr)
+                if (node.effectivePtr != Pointer.ZERO) {
+                    calcPerf(node)
                 }
+                return
+            }
 
-                if (!node.shouldRun()) {
-                    logger.debug("{} should not run", node.id.id.str)
-                    if (node.isPerfCalculated.not() && node.effectivePtr != Pointer.ZERO) {
-                        try {
-                            performanceService.calculate(node.expression.outputs[0])
-                            node.isPerfCalculated = true
-                            nodeRepository.save(node)
-                        } catch (e: Exception) {
-                            logger.error("calculate performance error: $e")
-                        }
-                    }
-                    endRun(node)
-                    return
+
+            val task = Task(
+                id = genId(),
+                expression = node.expression,
+                start = Clock.System.now(),
+                from = node.effectivePtr,
+                to = node.expectedPtr
+            )
+            try {
+                logger.info("try to run expression node: $task")
+                val started =
+                    executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                if (started) {
+                    states[node.id] = NodeState.RUNNING
+                    pushRunning(node)
+                    taskRepository.save(task)
+                } else {
+                    task.failedReason = "insufficient data to run"
+                    taskRepository.save(task)
                 }
-
-
-                val task = Task(
-                    id = genId(),
-                    expression = node.expression,
-                    start = Clock.System.now(),
-                    from = node.effectivePtr,
-                    to = node.expectedPtr
-                )
-                try {
-                    logger.info("try to run expression node: $task")
-                    val started =
-                        executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
-                    if (started) {
-                        states[node.id] = NodeState.RUNNING
-                        pushRunning(node)
-                        node.isRunning = true
-                        taskRepository.save(task)
-                    } else {
-                        task.failedReason = "insufficient data to run"
-                        taskRepository.save(task)
-                    }
-                } catch (e: Exception) {
-                    logger.error("try to run expression node err: $e")
-                    systemFailed(task, node, e.message.toString())
-                }
+            } catch (e: Exception) {
+                logger.error("try to run expression node err: $e")
+                systemFailed(task, node, e.message.toString())
             }
         } catch (e: Exception) {
-            logger.error("${node.id.id.str} tryRunExpressionNode error: $e")
-        }
-    }
-
-
-    private suspend fun updateDownstream(root: Node) {
-        val downstreams = downstream(root)
-        logger.debug("{} downstream size: {}, {}", root.id.id.str, downstreams.size, downstreams.map {
-            it.expression.outputs[0].str
-        }.toList())
-        for (node in downstreams) {
-            val newPtr = if (node.expression.inputs.size == 1) {
-                root.effectivePtr
-            } else {
-                logger.debug("{} -> {} findExp", root.id.id.str, node.id.id.str)
-                findExpectedPtr(node.expression)
-            }
-            logger.debug(
-                "{} inspecting: {}, exp: {}, newPtr: {}",
-                root.id.id.str,
-                node.id.id.str,
-                node.expectedPtr.value,
-                newPtr.value
-            )
-            if (node.expectedPtr != newPtr) {
-                logger.debug("{} updated downstream {} exp to {}", root.id.id.str, node.id, newPtr)
-                node.expectedPtr = newPtr
-                nodeRepository.save(node)  // update expected ptr
-            }
-        }
-        runBlocking {
-            for (node in downstreams) {
-                launch {
-                    tryRunExpressionNode(node) // try run (this start a new run session)
-                }
-            }
+            logger.error("${node.idStr} tryRunExpressionNode error: $e")
         }
     }
 
     private suspend fun findExpectedPtr(expression: Expression): Pointer {
-        val nodes = upstream(expression)
+        val nodes = upstreamOneLevel(expression)
         var expectedPtr: Pointer = Pointer.MAX
         for (node in nodes) {
             expectedPtr = minOf(node.effectivePtr, expectedPtr)
@@ -287,40 +259,15 @@ abstract class ExpressionNetwork(
     suspend fun succeedRun(id: TaskId) {
         logger.info("succeed run: $id")
         val task = taskRepository.get(id) ?: return
-        val node = getNode(task.expression.outputs[0])!!
-        val mutex = locks[node.id]!!
+        val node = getNode(task.nodeId)!!
         task.finish = Clock.System.now()
-        var reset: Boolean
-        mutex.withLock {
-            node.isRunning = false
-            states[node.id] = NodeState.FINISHED
-            reset = node.resetPtr
-            if (!reset) { // a success run
-                node.effectivePtr = node.expectedPtr
-                if (!node.isPerfCalculated) {
-                    try {
-                        for (output in node.expression.outputs) {
-                            performanceService.calculate(output)
-                        }
-                        node.isPerfCalculated = true
-                    } catch (e: Exception) {
-                        logger.error("calculate performance error: $e")
-                    }
-                }
-                nodeRepository.save(node)
-            }
-        }
-
-        if (!reset) {
-            updateDownstream(node)
-        }
-
-        endRun(node)
-
+        states[node.id] = NodeState.FINISHED
+        node.effectivePtr = node.expectedPtr
+        nodeRepository.save(node)
+        calcPerf(node)
+        updateDownstream(node)
         taskRepository.save(task)
-        for (output in node.ids()) {
-            messageQueue.pushRunFinish(output)
-        }
+        pushFinished(node)
     }
 
     suspend fun failedRun(id: TaskId, reason: String) {
@@ -329,23 +276,30 @@ abstract class ExpressionNetwork(
         task.finish = Clock.System.now()
         task.failedReason = reason
         taskRepository.save(task)
-        val nodeId = Node.Id(task.expression.outputs[0])
-        val node = loadedNodes[nodeId]!!
-        val mutex = locks[nodeId]!!
-        mutex.withLock {
-            node.isRunning = false
-            states[node.id] = NodeState.FAILED
-        }
+        val node = getNode(task.nodeId)!!
+        states[node.id] = NodeState.FAILED
         pushFailed(node, reason)
-        endRun(node)
         markInvalid(node)
     }
 
     suspend fun systemFailedRun(id: TaskId, reason: String) {
         logger.info("system failed run: $id")
         val task = taskRepository.get(id) ?: return
-        val node = getNode(task.expression.outputs[0])!!
+        val node = getNode(task.nodeId)!!
         systemFailed(task, node, reason)
+    }
+
+    private suspend fun calcPerf(node: Node) {
+        if (!node.isPerfCalculated) {
+            try {
+                for (output in node.expression.outputs) {
+                    performanceService.calculate(output)
+                }
+                node.isPerfCalculated = true
+            } catch (e: Exception) {
+                logger.error("calculate performance error: $e")
+            }
+        }
     }
 
     private suspend fun systemFailed(task: Task, node: Node, reason: String) {
@@ -354,22 +308,16 @@ abstract class ExpressionNetwork(
         task.finish = Clock.System.now()
         task.failedReason = reason
         taskRepository.save(task)
-        endRun(node)
     }
 
-    private fun endRun(node: Node) {
-        locks.remove(node.id) // always release lock's mem when finish running
-        loadedNodes.remove(node.id)
-    }
 
     // end 2
     private suspend fun markInvalid(node: Node) {
 //        node.valid = false
         node.effectivePtr = Pointer.ZERO
-//        node.expectedPtr = Pointer.ZERO
         nodeRepository.save(node)
-        for (dNode in downstream(node.expression)) {
-            markInvalid(dNode)
+        downstreamAll(node) {
+            markInvalid(it)
         }
     }
 
@@ -377,34 +325,23 @@ abstract class ExpressionNetwork(
 //    fun timeoutRun(id: TaskId) {
 //        executor.tryCancel(id)
 //        val task = taskRepository.get(id)
-//        val node = nodeRepository.queryByOutput(task.expression.outputs[0])
+//        val node = nodeRepository.queryByOutput(task.nodeId)
 //        executor.run()
 //    }
 
-    suspend fun updateFunc(funcId: FuncId) {
-        for (node in nodeRepository.queryByFunc(funcId)) {
-            markNeedUpdate(node)
-        }
-    }
+//    suspend fun updateFunc(funcId: FuncId) {
+//        for (node in nodeRepository.queryByFunc(funcId)) {
+//            markNeedUpdate(node)
+//        }
+//    }
 
     private suspend fun markNeedUpdate(node: Node) {
-        val mutex = locks.computeIfAbsent(node.id) { Mutex() }
-        mutex.withLock {
-            if (node.isRunning) {
-                node.resetPtr = true
-            }
-            node.effectivePtr = Pointer.ZERO
-            node.valid = true
-            nodeRepository.save(node)
-        }
-
-        for (dNode in downstream(node.expression)) {
-            markNeedUpdate(dNode)
-        }
+        node.effectivePtr = Pointer.ZERO
+        node.valid = true
+        nodeRepository.save(node)
     }
 
-
-    private suspend fun upstream(expression: Expression): Set<Node> {
+    private suspend fun upstreamOneLevel(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.inputs) {
             for (id in input.ids) {
@@ -414,11 +351,11 @@ abstract class ExpressionNetwork(
         return result
     }
 
-    private suspend fun upstream(node: Node): Set<Node> {
-        return upstream(node.expression)
+    private suspend fun upstreamOneLevel(node: Node): Set<Node> {
+        return upstreamOneLevel(node.expression)
     }
 
-    private suspend fun downstream(expression: Expression): Set<Node> {
+    private suspend fun downstreamOneLevel(expression: Expression): Set<Node> {
         val result = HashSet<Node>()
         for (input in expression.outputs) {
             result.addAll(findNodeByInput(input))
@@ -426,8 +363,8 @@ abstract class ExpressionNetwork(
         return result
     }
 
-    private suspend fun downstream(node: Node): Set<Node> {
-        return downstream(node.expression)
+    private suspend fun downstreamOneLevel(node: Node): Set<Node> {
+        return downstreamOneLevel(node.expression)
     }
 
     suspend fun add(expression: Expression): List<DataId> {
@@ -460,11 +397,22 @@ abstract class ExpressionNetwork(
             expectedPtr = findExpectedPtr(expression),
             expression = expression,
             valid = true,
-            resetPtr = false,
-            isRunning = false
         )
         nodeRepository.save(node)
         return result
+    }
+
+    private suspend fun saveRoot(expression: Expression): List<DataId> {
+        if (nodeRepository.queryByOutput(expression.outputs[0]) == null) {
+            val node = Node(
+                effectivePtr = Pointer.ZERO,
+                expectedPtr = Pointer.ZERO,
+                expression = expression,
+                valid = true,
+            )
+            nodeRepository.save(node)
+        }
+        return listOf(expression.outputs[0])
     }
 
     private suspend fun tryBatch(node: Node, to: Pointer): BatchExpression {
@@ -478,8 +426,8 @@ abstract class ExpressionNetwork(
         node: Node,
         to: Pointer
     ) {
-        if (upstream(node).filter { it != node }.map { it.effectivePtr >= to }.fold(true, Boolean::and)) {
-            val downstream = downstream(node)
+        if (upstreamOneLevel(node).filter { it != node }.map { it.effectivePtr >= to }.fold(true, Boolean::and)) {
+            val downstream = downstreamOneLevel(node)
             val first = downstream.first()
             batchList.add(node.expression)
             node.expectedPtr = to
@@ -491,20 +439,7 @@ abstract class ExpressionNetwork(
         }
     }
 
-    private suspend fun saveRoot(expression: Expression): List<DataId> {
-        if (nodeRepository.queryByOutput(expression.outputs[0]) == null) {
-            val node = Node(
-                effectivePtr = Pointer.ZERO,
-                expectedPtr = Pointer.ZERO,
-                expression = expression,
-                valid = true,
-                resetPtr = false,
-                isRunning = false
-            )
-            nodeRepository.save(node)
-        }
-        return listOf(expression.outputs[0])
-    }
+    private fun getLock(node: Node) = locks.computeIfAbsent(node.id) { Mutex() }
 
     private fun genId() = "__" + UUID.randomUUID().toString().replace("-", "")
     private suspend fun pushRunning(node: Node) {

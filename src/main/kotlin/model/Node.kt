@@ -18,8 +18,6 @@ data class Node(
     var valid: Boolean = true,
     var effectivePtr: Pointer,
     var expectedPtr: Pointer,
-    var isRunning: Boolean,
-    var resetPtr: Boolean,
     val expression: Expression,
     var mustCalculate: Boolean = false,
     var isPerfCalculated: Boolean = false
@@ -30,9 +28,9 @@ data class Node(
 
     fun isRunRoot(): Boolean = expression.isRoot() || mustCalculate
 
-    val id: Id
-        get() = Id(expression.outputs[0])
+    val id get() = Id(expression.outputs[0])
 
+    val idStr get() = id.id.str
     fun ids(): Iterable<DataId> {
         return expression.outputs
     }

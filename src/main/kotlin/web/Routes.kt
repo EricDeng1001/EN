@@ -85,13 +85,13 @@ fun Route.httpRoutes() {
         call.respond(HttpStatusCode.OK)
     }
 
-    post("/update_func") {
-        val funcId = call.receive<FuncId>()
-        launch {
-            ExpressionNetworkImpl.updateFunc(funcId)
-        }
-        call.respond(HttpStatusCode.OK)
-    }
+//    post("/update_func") {
+//        val funcId = call.receive<FuncId>()
+//        launch {
+//            ExpressionNetworkImpl.updateFunc(funcId)
+//        }
+//        call.respond(HttpStatusCode.OK)
+//    }
 
     post("/succeed_run") {
         val res = call.receive<RunSuccessResponse>()
