@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.withLock
+
 abstract class ExpressionNetwork(
     private val nodeRepository: NodeRepository,
     private val taskRepository: TaskRepository,
@@ -348,9 +349,14 @@ abstract class ExpressionNetwork(
 
 
     suspend fun updateFunc(funcId: FuncId) {
-        for (node in nodeRepository.queryByFunc(funcId)) {
-            markNeedUpdate(node)
+        enLock.writeLock().withLock {
+            runBlocking {
+                for (node in nodeRepository.queryByFunc(funcId)) {
+                    markNeedUpdate(node)
+                }
+            }
         }
+
     }
 
     private suspend fun markNeedUpdate(node: Node) {
