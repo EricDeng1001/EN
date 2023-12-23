@@ -26,7 +26,7 @@ abstract class ExpressionNetwork(
     private val enLock: ReadWriteLock = ReentrantReadWriteLock()
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
 
-    class RunRootState(
+    private class RunRootState(
         val lock: Mutex = Mutex(),
         val reqCount: AtomicInteger = AtomicInteger(0)
     )
@@ -392,13 +392,18 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun add(expression: Expression): List<DataId> {
-        if (expression.isRoot()) {
-            return saveRoot(expression)
-        }
+        enLock.readLock().withLock {
+            return runBlocking {
+                if (expression.isRoot()) {
+                    return@runBlocking saveRoot(expression)
+                }
 
-        return saveExpression(expression)
+                return@runBlocking saveExpression(expression)
+            }
+        }
     }
 
+    // internal use only.
     suspend fun updateRunRootInfo() {
         val roots = nodeRepository.queryAllRoot()
         val nonRoots = nodeRepository.queryAllNonRoot()
