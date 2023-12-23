@@ -65,8 +65,6 @@ data class NodeDO(
             valid,
             Pointer(effectivePtr),
             Pointer(expectedPtr),
-            isRunning = false,
-            resetPtr = false,
             expression = expression.toModel(),
             isPerfCalculated = isPerfCalculated ?: false,
             mustCalculate = mustCalculate ?: false
