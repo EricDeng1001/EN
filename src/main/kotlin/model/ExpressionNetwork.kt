@@ -1,5 +1,7 @@
 package model
 
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
@@ -7,7 +9,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-
 
 abstract class ExpressionNetwork(
     private val nodeRepository: NodeRepository,
@@ -264,8 +265,12 @@ abstract class ExpressionNetwork(
                 nodeRepository.save(node)  // update expected ptr
             }
         }
-        for (node in downstreams) {
-            tryRunExpressionNode(node) // try run (this start a new run session)
+        runBlocking {
+            for (node in downstreams) {
+                launch {
+                    tryRunExpressionNode(node) // try run (this start a new run session)
+                }
+            }
         }
     }
 
