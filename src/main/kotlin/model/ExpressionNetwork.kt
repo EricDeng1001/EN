@@ -128,7 +128,7 @@ abstract class ExpressionNetwork(
                 runRootState.reqCount.getAndIncrement()
                 val lock = runRootState.lock
                 if (lock.isLocked) {
-                    if (runRootState.reqCount.get() > 1) {
+                    if (runRootState.reqCount.get() >= 1) {
                         return@runBlocking
                     }
                 }
