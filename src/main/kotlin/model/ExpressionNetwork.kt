@@ -192,9 +192,7 @@ abstract class ExpressionNetwork(
         if (!node.shouldUpdate) {
             enLock.readLock().withLock {
                 runBlocking {
-                    launch {
-                        tryRunExpressionNode(node)
-                    }
+                    tryRunExpressionNode(node)
                 }
             }
         }
@@ -436,18 +434,6 @@ abstract class ExpressionNetwork(
         }
     }
 
-    // internal use only.
-    suspend fun updateRunRootInfo() {
-        val roots = nodeRepository.queryAllRoot()
-        val nonRoots = nodeRepository.queryAllNonRoot()
-        for (root in roots) {
-            downstreamAllIncludeSelf(root) {
-                it.runRoot = root.id
-            }
-        }
-        nodeRepository.saveAll(nonRoots)
-    }
-
 
     private suspend fun saveExpression(expression: Expression): List<DataId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
@@ -471,7 +457,6 @@ abstract class ExpressionNetwork(
             expectedPtr = findExpectedPtr(expression),
             expression = expression,
             valid = true,
-            runRoot = upstreamOneLevel(expression).first().runRoot
         )
         nodeRepository.save(node)
         return result

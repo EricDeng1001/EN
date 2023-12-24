@@ -20,7 +20,6 @@ data class Node(
     val expression: Expression,
     var mustCalculate: Boolean = false,
     var isPerfCalculated: Boolean = false,
-    var runRoot: Id,
     var shouldUpdate: Boolean = false,
 ) {
     @Serializable
@@ -42,7 +41,6 @@ data class Node(
             expression = expression,
             effectivePtr = Pointer.ZERO,
             expectedPtr = Pointer.ZERO,
-            runRoot = Id(expression.outputs.first().str)
         )
     }
 }
