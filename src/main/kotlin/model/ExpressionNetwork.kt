@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.collections.ArrayList
 import kotlin.concurrent.withLock
 
 abstract class ExpressionNetwork(
@@ -363,8 +364,8 @@ abstract class ExpressionNetwork(
         nodeRepository.save(node)
     }
 
-    private suspend fun upstreamOneLevel(expression: Expression): Set<Node> {
-        val result = HashSet<Node>()
+    private suspend fun upstreamOneLevel(expression: Expression): List<Node> {
+        val result = ArrayList<Node>()
         for (input in expression.inputs) {
             for (id in input.ids) {
                 result.add(getNode(id) ?: continue)
@@ -373,19 +374,19 @@ abstract class ExpressionNetwork(
         return result
     }
 
-    private suspend fun upstreamOneLevel(node: Node): Set<Node> {
+    private suspend fun upstreamOneLevel(node: Node): List<Node> {
         return upstreamOneLevel(node.expression)
     }
 
-    private suspend fun downstreamOneLevel(expression: Expression): Set<Node> {
-        val result = HashSet<Node>()
+    private suspend fun downstreamOneLevel(expression: Expression): List<Node> {
+        val result = ArrayList<Node>()
         for (input in expression.outputs) {
             result.addAll(findNodeByInput(input))
         }
         return result
     }
 
-    private suspend fun downstreamOneLevel(node: Node): Set<Node> {
+    private suspend fun downstreamOneLevel(node: Node): List<Node> {
         return downstreamOneLevel(node.expression)
     }
 
