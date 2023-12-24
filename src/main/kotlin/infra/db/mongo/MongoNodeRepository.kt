@@ -151,13 +151,13 @@ object MongoNodeRepository : NodeRepository {
 
     override suspend fun queryAllRoot(): List<Node> {
         return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
-            size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", 0)
+            size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", 0)
         ).map { it.toModel() }.toList()
     }
 
     override suspend fun queryAllNonRoot(): List<Node> {
         return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
-            not(size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", 0))
+            not(size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", 0))
         ).map { it.toModel() }.toList()
     }
 

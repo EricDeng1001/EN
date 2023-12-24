@@ -111,19 +111,19 @@ data class Graph(val nodes: List<Node>) {
     }
 
     fun debugView(): GraphDebugView {
-        val cache = nodes.associateBy { it.id.dataId }.toMap()
+        val cache = nodes.associateBy { it.id.str }.toMap()
         val ns = nodesMap.values.map {
             GraphDebugView.GraphDebugNode(
                 GraphDebugView.GraphDebugNode.Id(it.str),
                 "data",
                 it.str,
                 GraphDebugView.GraphDebugNode.DebugInfo(
-                    cache[it]!!.valid,
-                    cache[it]!!.effectivePtr.value,
-                    cache[it]!!.expectedPtr.value,
-                    cache[it]!!.isPerfCalculated,
-                    cache[it]!!.mustCalculate,
-                    cache[it]!!.expression
+                    cache[it.str]!!.valid,
+                    cache[it.str]!!.effectivePtr.value,
+                    cache[it.str]!!.expectedPtr.value,
+                    cache[it.str]!!.isPerfCalculated,
+                    cache[it.str]!!.mustCalculate,
+                    cache[it.str]!!.expression
                 )
             )
         }.toList()

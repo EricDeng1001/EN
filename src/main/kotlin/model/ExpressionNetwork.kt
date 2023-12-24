@@ -154,20 +154,20 @@ abstract class ExpressionNetwork(
 
     private suspend inline fun downstreamAllIncludeSelf(node: Node, action: (Node) -> Unit): HashSet<Node> {
         val toVisit = ArrayList<Node>()
-        val visited = HashSet<Node>()
+        val visited = HashMap<Node.Id, Node>()
         toVisit.add(node)
         while (toVisit.isNotEmpty()) {
             val n = toVisit.first()
             toVisit.remove(n)
-            visited.add(n)
+            visited[n.id] = n
             for (d in downstreamOneLevel(n)) {
-                if (!visited.contains(d)) {
-                    toVisit.add(n)
+                if (!visited.contains(d.id)) {
+                    toVisit.add(d)
                 }
             }
             action(n)
         }
-        return visited
+        return visited.values.toHashSet()
     }
 
     suspend fun markForceRunPerf(id: DataId) {
