@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.collections.ArrayList
 import kotlin.concurrent.withLock
 
 abstract class ExpressionNetwork(
@@ -23,14 +22,14 @@ abstract class ExpressionNetwork(
     private val performanceService: PerformanceService
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
-    private val runRootStates: MutableMap<Node.Id, RunRootState> = ConcurrentHashMap()
+    private val updateStates: MutableMap<Node.Id, UpdateState> = ConcurrentHashMap()
     private val enLock: ReadWriteLock = ReentrantReadWriteLock()
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
 
     private val MUTEX_SIZE: Int = 1024
     private val nodeLocks: Array<Mutex> = Array(MUTEX_SIZE) { Mutex() }
 
-    private class RunRootState(
+    private class UpdateState(
         val lock: Mutex = Mutex(), val reqCount: AtomicInteger = AtomicInteger(0)
     )
 
@@ -120,22 +119,21 @@ abstract class ExpressionNetwork(
             node.effectivePtr = effectivePtr
             node.expectedPtr = effectivePtr
             nodeRepository.save(node)
-            runRootNodeSafe(node)
+            updateRootSafe(node)
         }
     }
 
-    private fun runRootNodeSafe(node: Node) {
+    private fun updateRootSafe(node: Node) {
         enLock.readLock().withLock {
             runBlocking {
-                val runRootState = getRunRootState(node)
-                runRootState.reqCount.getAndIncrement()
-                val lock = runRootState.lock
-                if (runRootState.reqCount.get() > 1) {
-                    runRootState.reqCount.getAndDecrement()
+                val updateState = getUpdateState(node)
+                updateState.reqCount.getAndIncrement()
+                if (updateState.reqCount.get() > 1) {
+                    updateState.reqCount.getAndDecrement()
                     return@runBlocking
                 }
-                lock.withLock {
-                    runRootState.reqCount.getAndDecrement()
+                updateState.lock.withLock {
+                    updateState.reqCount.getAndDecrement()
                     val downstream = updateDownstream(node)
                     for (down in downstream) {
                         if (node.shouldUpdate) {
@@ -158,7 +156,7 @@ abstract class ExpressionNetwork(
             }
             nodeRepository.saveAll(all)
             node.effectivePtr = save
-            runRootNodeSafe(node)
+            updateRootSafe(node)
         }
     }
 
@@ -490,7 +488,7 @@ abstract class ExpressionNetwork(
         }
     }
 
-    private fun getRunRootState(node: Node) = runRootStates.computeIfAbsent(node.id) { RunRootState() }
+    private fun getUpdateState(node: Node) = updateStates.computeIfAbsent(node.id) { UpdateState() }
 
     private fun getNodeLock(node: Node): Mutex {
         return getNodeLock(node.id)
