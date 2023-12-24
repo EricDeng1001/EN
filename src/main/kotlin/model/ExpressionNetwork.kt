@@ -127,7 +127,7 @@ abstract class ExpressionNetwork(
                 val runRootState = getRunRootState(node)
                 runRootState.reqCount.getAndIncrement()
                 val lock = runRootState.lock
-                if (runRootState.reqCount.get() >= 1) {
+                if (runRootState.reqCount.get() > 1) {
                     return@runBlocking
                 }
                 lock.withLock {
@@ -287,7 +287,7 @@ abstract class ExpressionNetwork(
         val node = getNode(task.nodeId)!!
         task.finish = Clock.System.now()
         states[node.id] = NodeState.FINISHED
-        node.effectivePtr = node.expectedPtr
+        node.effectivePtr = task.to
         nodeRepository.save(node)
         calcPerf(node)
         updateDownstream(node)
