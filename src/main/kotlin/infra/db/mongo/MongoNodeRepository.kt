@@ -21,7 +21,8 @@ data class NodeDO(
     val expression: ExpressionDO,
     val isPerfCalculated: Boolean? = null,
     val mustCalculate: Boolean? = null,
-    val runRoot: String? = null
+    val runRoot: String? = null,
+    val shouldUpdate: Boolean? = null
 ) {
     data class InputDO(
         val type: String,
@@ -68,7 +69,8 @@ data class NodeDO(
             expression = expression.toModel(),
             isPerfCalculated = isPerfCalculated ?: false,
             mustCalculate = mustCalculate ?: false,
-            runRoot = NodeId(runRoot ?: "")
+            runRoot = NodeId(runRoot ?: ""),
+            shouldUpdate = shouldUpdate ?: false
         )
     }
 }
@@ -82,7 +84,9 @@ fun Node.toMongo(): NodeDO {
         expectedPtr.value,
         expression.toMongo(),
         isPerfCalculated,
-        mustCalculate = mustCalculate
+        mustCalculate = mustCalculate,
+        runRoot = runRoot.str,
+        shouldUpdate = shouldUpdate
     )
 }
 

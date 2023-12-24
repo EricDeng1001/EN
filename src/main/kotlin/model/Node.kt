@@ -20,7 +20,8 @@ data class Node(
     val expression: Expression,
     var mustCalculate: Boolean = false,
     var isPerfCalculated: Boolean = false,
-    var runRoot: Id
+    var runRoot: Id,
+    var shouldUpdate: Boolean = false,
 ) {
     @Serializable
     @JvmInline
