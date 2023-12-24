@@ -116,13 +116,13 @@ object MongoNodeRepository : NodeRepository {
     override suspend fun save(node: Node): Node {
         val save = node.toMongo()
         MongoConnection.getCollection<NodeDO>(NODES_TABLE).replaceOne(
-            eq("id", node.id), save, ReplaceOptions().upsert(true)
+            eq("id", node.idStr), save, ReplaceOptions().upsert(true)
         )
         return node
     }
 
     override suspend fun saveAll(nodes: Iterable<Node>) {
-        val operations = nodes.map { ReplaceOneModel(eq("id", it.id), it.toMongo(), ReplaceOptions().upsert(true)) }
+        val operations = nodes.map { ReplaceOneModel(eq("id", it.idStr), it.toMongo(), ReplaceOptions().upsert(true)) }
         MongoConnection.getCollection<NodeDO>(NODES_TABLE).bulkWrite(operations)
     }
 
