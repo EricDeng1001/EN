@@ -153,9 +153,9 @@ abstract class ExpressionNetwork(
                     updateState.reqCount.getAndDecrement()
                     val downstream = updateDownstream(node)
                     for (down in downstream) {
-                        if (node.shouldUpdate) {
+                        if (down.shouldUpdate) {
                             launch {
-                                tryRunExpressionNode(node) // try run (this start a new run session)
+                                tryRunExpressionNode(down) // try run (this start a new run session)
                             }
                         }
                     }
@@ -232,7 +232,11 @@ abstract class ExpressionNetwork(
             )
             // this check prevents double run
             if (newPtr != root.effectivePtr) { // not this update
-                logger.warn("a double parent concurrent update happens, and node info leaked")
+                logger.warn(
+                    "{} -> {} a double parent concurrent update happens, and node info leaked",
+                    root.idStr,
+                    node.idStr
+                )
                 continue
             }
             if (node.expectedPtr != newPtr) {
