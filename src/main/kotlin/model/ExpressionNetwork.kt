@@ -1,7 +1,6 @@
 package model
 
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
@@ -12,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.collections.ArrayList
 import kotlin.concurrent.withLock
 import kotlin.math.absoluteValue
 
@@ -30,6 +28,10 @@ abstract class ExpressionNetwork(
 
     private val MUTEX_SIZE: Int = 1024
     private val nodeLocks: Array<Mutex> = Array(MUTEX_SIZE) { Mutex() }
+
+    @OptIn(DelicateCoroutinesApi::class)
+
+    private val dispatcher = newFixedThreadPoolContext(32, "ENCoroutineContext")
 
     private class UpdateState(
         val lock: Mutex = Mutex(), val reqCount: AtomicInteger = AtomicInteger(0)
@@ -131,12 +133,16 @@ abstract class ExpressionNetwork(
     suspend fun updateRoot(id: DataId, effectivePtr: Pointer) {
         logger.debug("update root: {} to {}", id, effectivePtr)
         val node = getNode(id) ?: return
-        if (node.expression.isRoot()) {
-            if (effectivePtr > node.effectivePtr) {
-                node.effectivePtr = effectivePtr
-                node.expectedPtr = effectivePtr
-                nodeRepository.save(node)
-                updateRootSafe(node)
+        withContext(dispatcher) {
+            launch {
+                if (node.expression.isRoot()) {
+                    if (effectivePtr > node.effectivePtr) {
+                        node.effectivePtr = effectivePtr
+                        node.expectedPtr = effectivePtr
+                        nodeRepository.save(node)
+                        updateRootSafe(node)
+                    }
+                }
             }
         }
     }
@@ -320,24 +326,28 @@ abstract class ExpressionNetwork(
     suspend fun succeedRun(id: TaskId) {
         logger.info("succeed run: $id")
         val task = taskRepository.get(id) ?: return
-        val node = getNode(task.nodeId)!!
-        val mutex = getNodeLock(node)
-        mutex.withLock {
-            states[node.id] = NodeState.FINISHED
-        }
-        node.effectivePtr = task.to
-        task.finish = Clock.System.now()
-        tryCalcPerf(node)
-        nodeRepository.save(node)
-        taskRepository.save(task)
-        pushFinished(node)
+        withContext(dispatcher) {
+            launch {
+                val node = getNode(task.nodeId)!!
+                val mutex = getNodeLock(node)
+                mutex.withLock {
+                    states[node.id] = NodeState.FINISHED
+                }
+                node.effectivePtr = task.to
+                task.finish = Clock.System.now()
+                tryCalcPerf(node)
+                nodeRepository.save(node)
+                taskRepository.save(task)
+                pushFinished(node)
 
-        val downstream = updateDownstream(node)
-        runBlocking {
-            for (down in downstream) {
-                if (down.shouldUpdate == node.shouldUpdate) {
-                    launch {
-                        tryRunExpressionNode(down) // try run (this start a new run session)
+                val downstream = updateDownstream(node)
+                runBlocking {
+                    for (down in downstream) {
+                        if (down.shouldUpdate == node.shouldUpdate) {
+                            launch {
+                                tryRunExpressionNode(down) // try run (this start a new run session)
+                            }
+                        }
                     }
                 }
             }
@@ -347,17 +357,21 @@ abstract class ExpressionNetwork(
     suspend fun failedRun(id: TaskId, reason: String) {
         logger.info("failed run: $id")
         val task = taskRepository.get(id) ?: return
-        task.finish = Clock.System.now()
-        task.failedReason = reason
-        taskRepository.save(task)
-        val node = getNode(task.nodeId)!!
-        val mutex = getNodeLock(node)
-        mutex.withLock {
-            states[node.id] = NodeState.FAILED
-        }
-        pushFailed(node, reason)
-        downstreamAllIncludeSelf(node) {
-            markInvalid(it)
+        withContext(dispatcher) {
+            launch {
+                task.finish = Clock.System.now()
+                task.failedReason = reason
+                taskRepository.save(task)
+                val node = getNode(task.nodeId)!!
+                val mutex = getNodeLock(node)
+                mutex.withLock {
+                    states[node.id] = NodeState.FAILED
+                }
+                pushFailed(node, reason)
+                downstreamAllIncludeSelf(node) {
+                    markInvalid(it)
+                }
+            }
         }
     }
 
@@ -404,14 +418,17 @@ abstract class ExpressionNetwork(
 
 
     suspend fun updateFunc(funcId: FuncId) {
-        enLock.writeLock().withLock {
-            runBlocking {
-                for (node in nodeRepository.queryByFunc(funcId)) {
-                    markNeedUpdate(node)
+        withContext(dispatcher) {
+            launch {
+                enLock.writeLock().withLock {
+                    runBlocking {
+                        for (node in nodeRepository.queryByFunc(funcId)) {
+                            markNeedUpdate(node)
+                        }
+                    }
                 }
             }
         }
-
     }
 
     private suspend fun markNeedUpdate(node: Node) {

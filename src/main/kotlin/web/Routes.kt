@@ -13,7 +13,6 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
@@ -88,28 +87,22 @@ fun Route.httpRoutes() {
 
     post("/update_func") {
         val funcId = call.receive<FuncId>()
-        launch {
-            ExpressionNetworkImpl.updateFunc(funcId)
-        }
+        ExpressionNetworkImpl.updateFunc(funcId)
         call.respond(HttpStatusCode.OK)
     }
 
     post("/succeed_run") {
         val res = call.receive<RunSuccessResponse>()
-        launch {
-            ExpressionNetworkImpl.succeedRun(res.taskId)
-        }
+        ExpressionNetworkImpl.succeedRun(res.taskId)
         call.respond(res)
     }
 
     post("/failed_run") {
         val res = call.receive<RunErrorResponse>()
-        launch {
-            if (res.type == NodeState.FAILED.value) {
-                ExpressionNetworkImpl.failedRun(res.taskId, res.message)
-            } else if (res.type == NodeState.SYSTEM_FAILED.value) {
-                ExpressionNetworkImpl.systemFailedRun(res.taskId, res.message)
-            }
+        if (res.type == NodeState.FAILED.value) {
+            ExpressionNetworkImpl.failedRun(res.taskId, res.message)
+        } else if (res.type == NodeState.SYSTEM_FAILED.value) {
+            ExpressionNetworkImpl.systemFailedRun(res.taskId, res.message)
         }
         call.respond(res)
     }
@@ -127,12 +120,12 @@ fun Route.httpRoutes() {
     }
 }
 
-fun Route.adminHttpRoutes(){
+fun Route.adminHttpRoutes() {
     adminCheck {
         get("/tasks") {
             val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
                 ?: emptyList()
-            if (ids.isEmpty()){
+            if (ids.isEmpty()) {
                 call.respond(HttpStatusCode.OK, emptyList<Task>())
                 return@get
             }

@@ -26,3 +26,7 @@ POST localhost:8080/update_func
 Content-Type: application/json
 
 "func_id"
+
+###
+GET localhost:8080/delay
+Content-Type: application/json
