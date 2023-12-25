@@ -36,6 +36,7 @@ data class GraphDebugView(val nodes: List<GraphDebugNode>, val edges: List<Graph
             val expectedPtr: Int,
             val isPerfCalculated: Boolean,
             val mustCalculate: Boolean,
+            val shouldUpdate: Boolean,
             val expression: Expression
         )
     }
@@ -123,6 +124,7 @@ data class Graph(val nodes: List<Node>) {
                     cache[it.str]!!.expectedPtr.value,
                     cache[it.str]!!.isPerfCalculated,
                     cache[it.str]!!.mustCalculate,
+                    cache[it.str]!!.shouldUpdate,
                     cache[it.str]!!.expression
                 )
             )
