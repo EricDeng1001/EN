@@ -14,6 +14,7 @@ import java.util.concurrent.locks.ReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.collections.ArrayList
 import kotlin.concurrent.withLock
+import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
     private val nodeRepository: NodeRepository,
@@ -509,7 +510,7 @@ abstract class ExpressionNetwork(
     }
 
     private fun getNodeLock(nodeId: NodeId): Mutex {
-        return nodeLocks[nodeId.hashCode() % MUTEX_SIZE]
+        return nodeLocks[nodeId.hashCode().absoluteValue % MUTEX_SIZE]
     }
 
     private fun genId() = "__" + UUID.randomUUID().toString().replace("-", "")
