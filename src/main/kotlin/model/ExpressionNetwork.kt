@@ -56,6 +56,7 @@ abstract class ExpressionNetwork(
         }
         nodeRepository.saveAll(changed)
     }
+
     suspend fun markShouldUpdate(ids: List<DataId>) {
         val changed = ArrayList<Node>(ids.size)
         for (id in ids) {
@@ -65,6 +66,7 @@ abstract class ExpressionNetwork(
         }
         nodeRepository.saveAll(changed)
     }
+
     suspend fun buildGraph(ids: List<DataId>): GraphView {
         val nodes: MutableList<Node> = ArrayList()
         for (id in ids) {
@@ -264,7 +266,9 @@ abstract class ExpressionNetwork(
                 if (!node.shouldRun()) {
                     logger.debug("{} should not run", node.idStr)
                     if (node.effectivePtr != Pointer.ZERO) {
-                        calcPerf(node)
+                        if (calcPerf(node)) {
+                            nodeRepository.save(node)
+                        }
                     }
                     return
                 }
@@ -318,8 +322,8 @@ abstract class ExpressionNetwork(
         }
         node.effectivePtr = task.to
         task.finish = Clock.System.now()
-        nodeRepository.save(node)
         calcPerf(node)
+        nodeRepository.save(node)
         taskRepository.save(task)
         pushFinished(node)
 
@@ -359,17 +363,19 @@ abstract class ExpressionNetwork(
         systemFailed(task, node, reason)
     }
 
-    private suspend fun calcPerf(node: Node) {
+    private suspend fun calcPerf(node: Node): Boolean {
         if (!node.isPerfCalculated) {
             try {
                 for (output in node.expression.outputs) {
                     performanceService.calculate(output)
                 }
                 node.isPerfCalculated = true
+                return true
             } catch (e: Exception) {
                 logger.error("calculate performance error: $e")
             }
         }
+        return false
     }
 
     private suspend fun systemFailed(task: Task, node: Node, reason: String) {
@@ -538,7 +544,7 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun getTasksByDataId(ids: List<DataId>): List<Task>{
+    suspend fun getTasksByDataId(ids: List<DataId>): List<Task> {
         val tasks = taskRepository.getListByDataIds(ids)
         logger.info("find ${tasks.size} tasks by taskIds: $ids")
         return tasks
