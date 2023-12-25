@@ -63,9 +63,10 @@ object MongoTaskRepository : TaskRepository {
             .map { it.toModel() }.firstOrNull()
     }
 
-    override suspend fun getListByDataIds(ids: List<String>): List<Task> {
+    override suspend fun getListByDataIds(ids: List<DataId>): List<Task> {
+        val idList = ids.map { it.str }
         return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(Filters.`in`
-            ("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", ids))
+            ("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", idList))
             .map { it.toModel() }.toList()
     }
 
