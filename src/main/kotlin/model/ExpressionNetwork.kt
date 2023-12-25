@@ -52,7 +52,13 @@ abstract class ExpressionNetwork(
             nodeRepository.save(node)
         }
     }
-
+    suspend fun markShouldUpdate(ids: List<DataId>) {
+        for (id in ids) {
+            val node = getNode(id) ?: continue
+            node.shouldUpdate = true
+            nodeRepository.save(node)
+        }
+    }
     suspend fun buildGraph(ids: List<DataId>): GraphView {
         val nodes: MutableList<Node> = ArrayList()
         for (id in ids) {

@@ -113,9 +113,15 @@ fun Route.httpRoutes() {
         call.respond(res)
     }
 
-    post("/markMust") {
+    post("/mark_must") {
         val ids = call.receive<List<DataId>>()
         ExpressionNetworkImpl.markMustCalc(ids)
+        call.respond(HttpStatusCode.OK)
+    }
+
+    post("/mark_should_update") {
+        val ids = call.receive<List<DataId>>()
+        ExpressionNetworkImpl.markShouldUpdate(ids)
         call.respond(HttpStatusCode.OK)
     }
 }
