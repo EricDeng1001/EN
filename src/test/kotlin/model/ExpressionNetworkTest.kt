@@ -14,20 +14,18 @@ import kotlin.test.assertNotNull
 
 class MockNodeRepo : NodeRepository {
     val idMap: MutableMap<NodeId, Node> = ConcurrentHashMap()
-    val funcMap: MutableMap<FuncId, MutableSet<Node>> = ConcurrentHashMap()
+    val funcMap: MutableMap<FuncId, ArrayList<Node>> = ConcurrentHashMap()
     val expressionMap: MutableMap<Expression, Node> = ConcurrentHashMap()
-    val inputMap: MutableMap<DataId, MutableSet<Node>> = ConcurrentHashMap()
+    val inputMap: MutableMap<DataId, ArrayList<Node>> = ConcurrentHashMap()
     val outputMap: MutableMap<DataId, Node> = ConcurrentHashMap()
 
     override suspend fun save(node: Node): Node {
         val nodeCopy = node.copy()
-        nodeCopy.resetPtr = false // db does not mem these two
-        nodeCopy.isRunning = false
         idMap[nodeCopy.id] = nodeCopy
-        funcMap.computeIfAbsent(nodeCopy.expression.funcId) { CopyOnWriteArraySet() }
+        funcMap.computeIfAbsent(nodeCopy.expression.funcId) { ArrayList() }
             .add(nodeCopy) // fix ConcurrentModificationException when updateFuncId
         nodeCopy.expression.inputs.forEach {
-            inputMap.computeIfAbsent(it.ids[0]) { CopyOnWriteArraySet() }.add(nodeCopy) // ConcurrentModificationException
+            inputMap.computeIfAbsent(it.ids[0]) { ArrayList() }.add(nodeCopy) // ConcurrentModificationException
         }
         nodeCopy.expression.outputs.forEach {
             outputMap[it] = nodeCopy
@@ -45,11 +43,26 @@ class MockNodeRepo : NodeRepository {
         return expressionMap[queryExpression]
     }
 
-    override suspend fun queryByInput(id: DataId): Set<Node> = inputMap[id] ?: emptySet()
+    override suspend fun queryByInput(id: DataId): List<Node> = inputMap[id] ?: emptyList()
 
     override suspend fun queryByOutput(id: DataId): Node? = outputMap[id]
 
-    override suspend fun queryByFunc(funcId: FuncId): Set<Node> = funcMap[funcId] ?: emptySet()
+    override suspend fun queryByFunc(funcId: FuncId): List<Node> = funcMap[funcId] ?: emptyList()
+    override suspend fun queryAllRoot(): List<Node> {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun queryAllNonRoot(): List<Node> {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun saveAll(nodes: Iterable<Node>) {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun get(id: NodeId): Node? {
+        TODO("Not yet implemented")
+    }
 
 }
 
@@ -62,7 +75,7 @@ class MockTaskRepo : TaskRepository {
     }
 
     override suspend fun get(id: TaskId): Task? = idMap[id]
-    override suspend fun getListByDataIds(ids: List<String>): List<Task> {
+    override suspend fun getListByDataIds(ids: List<DataId>): List<Task> {
         TODO("Not yet implemented")
     }
 
