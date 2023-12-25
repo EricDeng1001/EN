@@ -47,7 +47,7 @@ data class GraphDebugView(val nodes: List<GraphDebugNode>, val edges: List<Graph
 
 
 @Serializable
-data class Graph(val nodes: List<Node>) {
+data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
 
     private val nodesMap: MutableMap<DataId, DataId> = HashMap()
 
@@ -112,7 +112,7 @@ data class Graph(val nodes: List<Node>) {
     }
 
     fun debugView(): GraphDebugView {
-        val cache = nodes.associateBy { it.id.str }.toMap()
+        val cache = nodes.associateBy { it.id.str }.toMap() + inputs.associateBy { it.id.str }.toMap()
         val ns = nodesMap.values.map {
             GraphDebugView.GraphDebugNode(
                 GraphDebugView.GraphDebugNode.Id(it.str),

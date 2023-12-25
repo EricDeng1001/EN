@@ -73,7 +73,7 @@ abstract class ExpressionNetwork(
             val node = nodeRepository.queryByOutput(id) ?: continue
             nodes.add(node)
         }
-        return Graph(nodes).view()
+        return Graph(nodes, emptyList()).view()
     }
 
     suspend fun buildDebugGraph(ids: List<DataId>): GraphDebugView {
@@ -87,12 +87,13 @@ abstract class ExpressionNetwork(
         }
         val allInputs = inputs - ids.toSet()
 
+        val inputsNode = ArrayList<Node>()
         for (id in allInputs) {
             val node = nodeRepository.queryByOutput(id) ?: continue
-            nodes.add(node)
+            inputsNode.add(node)
         }
 
-        return Graph(nodes).debugView()
+        return Graph(nodes, inputsNode).debugView()
     }
 
     suspend fun queryExpressionsState(ids: List<DataId>): List<Pair<DataId, String?>> {
