@@ -125,12 +125,15 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun updateRoot(id: DataId, effectivePtr: Pointer) {
+        logger.debug("update root: {} to {}", id, effectivePtr)
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
-            node.effectivePtr = effectivePtr
-            node.expectedPtr = effectivePtr
-            nodeRepository.save(node)
-            updateRootSafe(node)
+            if (effectivePtr > node.effectivePtr) {
+                node.effectivePtr = effectivePtr
+                node.expectedPtr = effectivePtr
+                nodeRepository.save(node)
+                updateRootSafe(node)
+            }
         }
     }
 
