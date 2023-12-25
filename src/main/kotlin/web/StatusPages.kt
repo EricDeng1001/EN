@@ -14,10 +14,17 @@ data class ErrorResponse(val message: String?)
 fun Application.configureStatusPages() {
     install(StatusPages) {
         exception<Throwable> { call, cause ->
-            if (cause is ContentTransformationException) {
-                call.respond(HttpStatusCode.BadRequest, ErrorResponse(cause.message))
-            } else {
-                call.respond(HttpStatusCode.InternalServerError, ErrorResponse(cause.message))
+            when (cause) {
+                is ContentTransformationException,
+                is IllegalArgumentException
+                -> {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(cause.message))
+                }
+
+                else -> {
+                    call.respond(HttpStatusCode.InternalServerError, ErrorResponse(cause.message))
+
+                }
             }
         }
     }
