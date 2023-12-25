@@ -1,27 +1,27 @@
 package infra.db.mongo
 
 import com.mongodb.client.model.Filters
-import com.mongodb.client.model.Filters.eq
-import com.mongodb.client.model.Filters.`in`
+import com.mongodb.client.model.Filters.*
+import com.mongodb.client.model.ReplaceOneModel
 import com.mongodb.client.model.ReplaceOptions
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toSet
-import kotlinx.datetime.*
+import kotlinx.coroutines.flow.toList
 import model.*
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
-import java.time.LocalDateTime
 import java.util.TreeMap
 
 data class NodeDO(
-    @BsonId val id: ObjectId,
+    @BsonId val mongoId: ObjectId? = null,
+    val id: String,
     val valid: Boolean,
     val effectivePtr: Int,
     val expectedPtr: Int,
     val expression: ExpressionDO,
     val isPerfCalculated: Boolean? = null,
-    val mustCalculate: Boolean? = null
+    val mustCalculate: Boolean? = null,
+    val shouldUpdate: Boolean? = null
 ) {
     data class InputDO(
         val type: String,
@@ -65,24 +65,25 @@ data class NodeDO(
             valid,
             Pointer(effectivePtr),
             Pointer(expectedPtr),
-            isRunning = false,
-            resetPtr = false,
             expression = expression.toModel(),
             isPerfCalculated = isPerfCalculated ?: false,
-            mustCalculate = mustCalculate ?: false
+            mustCalculate = mustCalculate ?: false,
+            shouldUpdate = shouldUpdate ?: false
         )
     }
 }
 
-fun Node.toMongo(id: ObjectId): NodeDO {
+fun Node.toMongo(): NodeDO {
     return NodeDO(
-        id,
+        null,
+        id.str,
         valid,
         effectivePtr.value,
         expectedPtr.value,
         expression.toMongo(),
         isPerfCalculated,
-        mustCalculate = mustCalculate
+        mustCalculate = mustCalculate,
+        shouldUpdate = shouldUpdate
     )
 }
 
@@ -114,12 +115,16 @@ object MongoNodeRepository : NodeRepository {
     private const val NODES_TABLE = "nodes"
 
     override suspend fun save(node: Node): Node {
-        val id = queryNodeDOByExpression(node.expression)?.id ?: ObjectId()
-        val save = node.toMongo(id)
+        val save = node.toMongo()
         MongoConnection.getCollection<NodeDO>(NODES_TABLE).replaceOne(
-            eq("_${NodeDO::id.name}", id), save, ReplaceOptions().upsert(true)
+            eq("id", node.idStr), save, ReplaceOptions().upsert(true)
         )
         return node
+    }
+
+    override suspend fun saveAll(nodes: Iterable<Node>) {
+        val operations = nodes.map { ReplaceOneModel(eq("id", it.idStr), it.toMongo(), ReplaceOptions().upsert(true)) }
+        MongoConnection.getCollection<NodeDO>(NODES_TABLE).bulkWrite(operations)
     }
 
     override suspend fun queryByExpression(expression: Expression): Node? {
@@ -127,10 +132,10 @@ object MongoNodeRepository : NodeRepository {
         return nodeDO.toModel()
     }
 
-    override suspend fun queryByInput(id: DataId): Set<Node> {
+    override suspend fun queryByInput(id: DataId): List<Node> {
         return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", id.str)
-        ).map { it.toModel() }.toSet()
+        ).map { it.toModel() }.toList()
     }
 
     override suspend fun queryByOutput(id: DataId): Node? {
@@ -139,10 +144,28 @@ object MongoNodeRepository : NodeRepository {
         ).map { it.toModel() }.firstOrNull()
     }
 
-    override suspend fun queryByFunc(funcId: FuncId): Set<Node> {
+    override suspend fun queryByFunc(funcId: FuncId): List<Node> {
         return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", funcId.value)
-        ).map { it.toModel() }.toSet()
+        ).map { it.toModel() }.toList()
+    }
+
+    override suspend fun queryAllRoot(): List<Node> {
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", 0)
+        ).map { it.toModel() }.toList()
+    }
+
+    override suspend fun queryAllNonRoot(): List<Node> {
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            not(size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", 0))
+        ).map { it.toModel() }.toList()
+    }
+
+    override suspend fun get(id: NodeId): Node? {
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            eq("id", id.str)
+        ).map { it.toModel() }.firstOrNull()
     }
 
     private suspend fun queryNodeDOByExpression(expression: Expression): NodeDO? {
@@ -156,7 +179,7 @@ object MongoNodeRepository : NodeRepository {
             ).firstOrNull()
         } else {
             return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
-                Filters.and(
+                and(
                     listOf(
                         eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", edo.inputs),
                         eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", edo.funcId),

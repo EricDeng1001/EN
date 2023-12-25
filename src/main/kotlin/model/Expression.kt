@@ -23,7 +23,7 @@ data class Expression(
     var outputs: List<DataId>,
     val funcId: FuncId,
     val dataflow: String,
-    val arguments: Map<ArgName, Argument>
+    val arguments: Map<ArgName, Argument>,
 ) {
     fun isRoot(): Boolean = this.inputs.isEmpty()
 

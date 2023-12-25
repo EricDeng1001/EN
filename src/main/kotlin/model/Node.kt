@@ -1,6 +1,5 @@
 package model
 
-import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -18,22 +17,28 @@ data class Node(
     var valid: Boolean = true,
     var effectivePtr: Pointer,
     var expectedPtr: Pointer,
-    var isRunning: Boolean,
-    var resetPtr: Boolean,
     val expression: Expression,
     var mustCalculate: Boolean = false,
-    var isPerfCalculated: Boolean = false
+    var isPerfCalculated: Boolean = false,
+    var shouldUpdate: Boolean = false,
 ) {
+    @Serializable
     @JvmInline
-    value class Id(val id: DataId)
+    value class Id(val str: String)
     fun shouldRun(): Boolean = expectedPtr > effectivePtr
 
-    fun isRunRoot(): Boolean = expression.isRoot() || mustCalculate
+    val id get() = Id(expression.outputs[0].str)
 
-    val id: Id
-        get() = Id(expression.outputs[0])
-
+    val idStr get() = id.str
     fun ids(): Iterable<DataId> {
         return expression.outputs
+    }
+
+    companion object {
+        fun makeRoot(expression: Expression) = Node(
+            expression = expression,
+            effectivePtr = Pointer.ZERO,
+            expectedPtr = Pointer.ZERO,
+        )
     }
 }
