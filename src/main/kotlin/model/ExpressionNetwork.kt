@@ -266,7 +266,7 @@ abstract class ExpressionNetwork(
                 if (!node.shouldRun()) {
                     logger.debug("{} should not run", node.idStr)
                     if (node.effectivePtr != Pointer.ZERO) {
-                        if (calcPerf(node)) {
+                        if (tryCalcPerf(node)) {
                             nodeRepository.save(node)
                         }
                     }
@@ -322,7 +322,7 @@ abstract class ExpressionNetwork(
         }
         node.effectivePtr = task.to
         task.finish = Clock.System.now()
-        calcPerf(node)
+        tryCalcPerf(node)
         nodeRepository.save(node)
         taskRepository.save(task)
         pushFinished(node)
@@ -363,7 +363,7 @@ abstract class ExpressionNetwork(
         systemFailed(task, node, reason)
     }
 
-    private suspend fun calcPerf(node: Node): Boolean {
+    private suspend fun tryCalcPerf(node: Node): Boolean {
         if (!node.isPerfCalculated) {
             try {
                 for (output in node.expression.outputs) {
