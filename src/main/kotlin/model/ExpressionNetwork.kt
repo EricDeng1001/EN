@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.collections.ArrayList
 import kotlin.concurrent.withLock
 
 abstract class ExpressionNetwork(
@@ -46,18 +47,22 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun markMustCalc(ids: List<DataId>) {
+        val changed = ArrayList<Node>(ids.size)
         for (id in ids) {
             val node = getNode(id) ?: continue
             node.mustCalculate = true
-            nodeRepository.save(node)
+            changed.add(node)
         }
+        nodeRepository.saveAll(changed)
     }
     suspend fun markShouldUpdate(ids: List<DataId>) {
+        val changed = ArrayList<Node>(ids.size)
         for (id in ids) {
             val node = getNode(id) ?: continue
             node.shouldUpdate = true
-            nodeRepository.save(node)
+            changed.add(node)
         }
+        nodeRepository.saveAll(changed)
     }
     suspend fun buildGraph(ids: List<DataId>): GraphView {
         val nodes: MutableList<Node> = ArrayList()
