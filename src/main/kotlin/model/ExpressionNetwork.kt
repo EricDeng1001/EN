@@ -304,7 +304,7 @@ abstract class ExpressionNetwork(
                         taskRepository.save(task)
                     }
                 } catch (e: Exception) {
-                    logger.error("try to run expression node err: $e")
+                    logger.error("try to run expression node err: ${task.id} $e")
                     systemFailed(task, node, e.message.toString())
                 }
             }
