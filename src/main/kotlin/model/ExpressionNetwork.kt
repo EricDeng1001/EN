@@ -379,7 +379,10 @@ abstract class ExpressionNetwork(
         logger.info("system failed run: $id")
         val task = taskRepository.get(id) ?: return
         val node = getNode(task.nodeId)!!
-        systemFailed(task, node, reason)
+        val mutex = getNodeLock(node)
+        mutex.withLock {
+            systemFailed(task, node, reason)
+        }
     }
 
     private suspend fun tryCalcPerf(node: Node): Boolean {
@@ -398,10 +401,7 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun systemFailed(task: Task, node: Node, reason: String) {
-        val mutex = getNodeLock(node)
-        mutex.withLock {
-            states[node.id] = NodeState.SYSTEM_FAILED
-        }
+        states[node.id] = NodeState.SYSTEM_FAILED
         pushSystemFailed(node)
         task.finish = Clock.System.now()
         task.failedReason = reason
