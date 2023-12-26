@@ -300,7 +300,7 @@ abstract class ExpressionNetwork(
                         pushRunning(node)
                         taskRepository.save(task)
                     } else {
-                        task.failedReason = "insufficient data to run"
+                        task.failedReason = "no slot to output"
                         taskRepository.save(task)
                     }
                 } catch (e: Exception) {
