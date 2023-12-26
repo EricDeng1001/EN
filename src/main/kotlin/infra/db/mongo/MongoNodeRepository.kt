@@ -124,7 +124,9 @@ object MongoNodeRepository : NodeRepository {
 
     override suspend fun saveAll(nodes: Iterable<Node>) {
         val operations = nodes.map { ReplaceOneModel(eq("id", it.idStr), it.toMongo(), ReplaceOptions().upsert(true)) }
-        MongoConnection.getCollection<NodeDO>(NODES_TABLE).bulkWrite(operations)
+        if(operations.isNotEmpty()){
+            MongoConnection.getCollection<NodeDO>(NODES_TABLE).bulkWrite(operations)
+        }
     }
 
     override suspend fun queryByExpression(expression: Expression): Node? {
