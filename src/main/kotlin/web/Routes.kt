@@ -13,6 +13,9 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
@@ -118,6 +121,25 @@ fun Route.httpRoutes() {
         ExpressionNetworkImpl.markShouldUpdate(ids)
         call.respond(HttpStatusCode.OK)
     }
+
+
+    get("/delay") {
+
+        coroutineScope {
+            launch {
+                val x = fib(call.request.queryParameters["n"]?.toInt() ?: 1)
+                println(x)
+                delay(10000)
+            }
+            println("1234")
+            call.respond("1234")
+        }
+
+    }
+}
+
+fun fib(n: Int): Int {
+    return if (n == 1 || n == 2) 1 else fib(n - 1) + fib(n - 2)
 }
 
 fun Route.adminHttpRoutes() {

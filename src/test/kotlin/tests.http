@@ -28,5 +28,5 @@ Content-Type: application/json
 "func_id"
 
 ###
-GET localhost:8080/delay
+GET localhost:8080/delay?n=45
 Content-Type: application/json
