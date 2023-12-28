@@ -156,9 +156,9 @@ abstract class ExpressionNetwork(
                         }
                     }
                 }
-                updateState.isUpdating.set(false)
             }
         }
+        updateState.isUpdating.set(false)
     }
 
     suspend fun reUpdateRoot(id: DataId, resetPtr: Pointer) {
