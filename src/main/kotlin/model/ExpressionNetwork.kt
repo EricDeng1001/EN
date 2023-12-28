@@ -9,9 +9,6 @@ import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.ReadWriteLock
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.withLock
 import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
@@ -23,7 +20,6 @@ abstract class ExpressionNetwork(
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
     private val updateStates: MutableMap<Node.Id, UpdateState> = ConcurrentHashMap()
-    private val enLock: ReadWriteLock = ReentrantReadWriteLock()
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
 
     private val MUTEX_SIZE: Int = 1024
@@ -146,22 +142,20 @@ abstract class ExpressionNetwork(
     }
 
     private fun updateRootSafe(node: Node) {
-        enLock.readLock().withLock {
-            runBlocking {
-                val updateState = getUpdateState(node)
-                updateState.reqCount.getAndIncrement()
-                if (updateState.reqCount.get() > 1) {
-                    updateState.reqCount.getAndDecrement()
-                    return@runBlocking
-                }
-                updateState.lock.withLock {
-                    updateState.reqCount.getAndDecrement()
-                    val downstream = updateDownstream(node)
-                    for (down in downstream) {
-                        if (down.shouldUpdate) {
-                            launch {
-                                tryRunExpressionNode(down) // try run (this start a new run session)
-                            }
+        runBlocking {
+            val updateState = getUpdateState(node)
+            updateState.reqCount.getAndIncrement()
+            if (updateState.reqCount.get() > 1) {
+                updateState.reqCount.getAndDecrement()
+                return@runBlocking
+            }
+            updateState.lock.withLock {
+                updateState.reqCount.getAndDecrement()
+                val downstream = updateDownstream(node)
+                for (down in downstream) {
+                    if (down.shouldUpdate) {
+                        launch {
+                            tryRunExpressionNode(down) // try run (this start a new run session)
                         }
                     }
                 }
@@ -210,10 +204,8 @@ abstract class ExpressionNetwork(
     suspend fun runExpression(id: DataId) {
         val node = getNode(id) ?: return
         if (!node.shouldUpdate) {
-            enLock.readLock().withLock {
-                runBlocking {
-                    tryRunExpressionNode(node)
-                }
+            runBlocking {
+                tryRunExpressionNode(node)
             }
         }
     }
@@ -405,11 +397,9 @@ abstract class ExpressionNetwork(
 
     suspend fun updateFunc(funcId: FuncId) {
         backgroundTasks.launch {
-            enLock.writeLock().withLock {
-                runBlocking {
-                    for (node in nodeRepository.queryByFunc(funcId)) {
-                        markNeedUpdate(node)
-                    }
+            runBlocking {
+                for (node in nodeRepository.queryByFunc(funcId)) {
+                    markNeedUpdate(node)
                 }
             }
         }
@@ -448,14 +438,12 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun add(expression: Expression): List<DataId> {
-        enLock.readLock().withLock {
-            return runBlocking {
-                if (expression.isRoot()) {
-                    return@runBlocking saveRoot(expression)
-                }
-
-                return@runBlocking saveExpression(expression)
+        return runBlocking {
+            if (expression.isRoot()) {
+                return@runBlocking saveRoot(expression)
             }
+
+            return@runBlocking saveExpression(expression)
         }
     }
 
