@@ -129,36 +129,36 @@ abstract class ExpressionNetwork(
     suspend fun updateRoot(id: DataId, effectivePtr: Pointer) {
         logger.debug("update root: {} to {}", id, effectivePtr)
         val node = getNode(id) ?: return
-        backgroundTasks.launch {
-            if (node.expression.isRoot()) {
-                if (effectivePtr > node.effectivePtr) {
-                    node.effectivePtr = effectivePtr
-                    node.expectedPtr = effectivePtr
-                    nodeRepository.save(node)
-                    updateRootSafe(node)
-                }
+        if (node.expression.isRoot()) {
+            if (effectivePtr > node.effectivePtr) {
+                node.effectivePtr = effectivePtr
+                node.expectedPtr = effectivePtr
+                nodeRepository.save(node)
+                updateRootSafeAsync(node)
             }
         }
     }
 
-    private suspend fun updateRootSafe(node: Node) {
+    private fun updateRootSafeAsync(node: Node) {
         val updateState = getUpdateState(node)
         if (!updateState.isUpdating.compareAndSet(false, true)) {
             return
         }
-        coroutineScope {
-            updateState.lock.withLock {
-                val downstream = updateDownstream(node)
-                for (down in downstream) {
-                    if (down.shouldUpdate) {
-                        launch {
-                            tryRunExpressionNode(down) // try run (this start a new run session)
+        backgroundTasks.launch {
+            coroutineScope {
+                updateState.lock.withLock {
+                    val downstream = updateDownstream(node)
+                    for (down in downstream) {
+                        if (down.shouldUpdate) {
+                            launch {
+                                tryRunExpressionNode(down) // try run (this start a new run session)
+                            }
                         }
                     }
                 }
             }
+            updateState.isUpdating.set(false)
         }
-        updateState.isUpdating.set(false)
     }
 
     suspend fun reUpdateRoot(id: DataId, resetPtr: Pointer) {
@@ -170,7 +170,7 @@ abstract class ExpressionNetwork(
             }
             nodeRepository.saveAll(all)
             node.effectivePtr = save
-            updateRootSafe(node)
+            updateRootSafeAsync(node)
         }
     }
 
