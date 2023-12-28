@@ -118,6 +118,11 @@ fun Route.httpRoutes() {
         ExpressionNetworkImpl.markMustCalc(ids)
         call.respond(HttpStatusCode.OK)
     }
+
+    post("/rerun") {
+        val id = call.receive<TaskId>()
+        ExpressionNetworkImpl.rerun(id)
+    }
 }
 
 fun Route.websocketRoutes() {

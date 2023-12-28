@@ -313,9 +313,7 @@ abstract class ExpressionNetwork(
         endRun(node)
 
         taskRepository.save(task)
-        for (output in node.ids()) {
-            messageQueue.pushRunFinish(output)
-        }
+        pushFinished(node)
     }
 
     suspend fun failedRun(id: TaskId, reason: String) {
@@ -501,6 +499,18 @@ abstract class ExpressionNetwork(
         return listOf(expression.outputs[0])
     }
 
+    suspend fun rerun(id: TaskId) {
+        val task = taskRepository.get(id) ?: return
+        taskRepository.delete(id)
+        val newTask = Task(
+            id = genId(),
+            expression = task.expression,
+            start = Clock.System.now(),
+            from = task.from,
+            to = task.to
+        )
+        executor.run(task.expression, task.from, task.to, task.id)
+    }
     private fun genId() = "__" + UUID.randomUUID().toString().replace("-", "")
     private suspend fun pushRunning(node: Node) {
         for (id in node.ids()) {
