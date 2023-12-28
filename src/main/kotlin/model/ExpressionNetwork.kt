@@ -293,6 +293,7 @@ abstract class ExpressionNetwork(
                     logger.info("try to run expression node: $task")
                     val started =
                         executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                    logger.debug("start to run expression node: {}", task)
                     if (started) {
                         states[node.id] = NodeState.RUNNING
                         pushRunning(node)

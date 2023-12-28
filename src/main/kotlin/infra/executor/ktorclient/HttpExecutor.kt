@@ -55,7 +55,8 @@ object HttpExecutor : Executor {
             json(Json(from = DefaultJson) { ignoreUnknownKeys = true })
         }
         install(HttpTimeout) {
-            requestTimeoutMillis = 60 * 1000
+            requestTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
+            connectTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
         }
     }
 
