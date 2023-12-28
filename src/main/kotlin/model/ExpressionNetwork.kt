@@ -324,12 +324,10 @@ abstract class ExpressionNetwork(
             pushFinished(node)
 
             val downstream = updateDownstream(node)
-            runBlocking {
-                for (down in downstream) {
-                    if (down.shouldUpdate == node.shouldUpdate) {
-                        launch {
-                            tryRunExpressionNode(down) // try run (this start a new run session)
-                        }
+            for (down in downstream) {
+                if (down.shouldUpdate == node.shouldUpdate) {
+                    launch {
+                        tryRunExpressionNode(down) // try run (this start a new run session)
                     }
                 }
             }
