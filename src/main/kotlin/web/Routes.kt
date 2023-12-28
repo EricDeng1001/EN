@@ -122,6 +122,10 @@ fun Route.httpRoutes() {
         call.respond(HttpStatusCode.OK)
     }
 
+    post("/rerun") {
+        val id = call.receive<TaskId>()
+        ExpressionNetworkImpl.rerun(id)
+    }
 
     get("/delay") {
 
@@ -145,8 +149,8 @@ fun fib(n: Int): Int {
 fun Route.adminHttpRoutes() {
     adminCheck {
         get("/tasks") {
-            val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
-                ?: emptyList()
+            val ids: List<DataId> =
+                call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList() ?: emptyList()
             if (ids.isEmpty()) {
                 call.respond(HttpStatusCode.OK, emptyList<Task>())
                 return@get

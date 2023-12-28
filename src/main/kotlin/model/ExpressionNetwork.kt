@@ -230,9 +230,7 @@ abstract class ExpressionNetwork(
             // this check prevents double run
             if (newPtr != root.effectivePtr) { // not this update
                 logger.warn(
-                    "{} -> {} a double parent concurrent update happens, and node info leaked",
-                    root.idStr,
-                    node.idStr
+                    "{} -> {} a double parent concurrent update happens, and node info leaked", root.idStr, node.idStr
                 )
                 continue
             }
@@ -511,6 +509,15 @@ abstract class ExpressionNetwork(
 
     private fun getNodeLock(nodeId: NodeId): Mutex {
         return nodeLocks[nodeId.hashCode().absoluteValue % MUTEX_SIZE]
+    }
+
+    suspend fun rerun(id: TaskId) {
+        val task = taskRepository.get(id) ?: return
+        taskRepository.delete(id)
+        val newTask = Task(
+            id = genId(), expression = task.expression, start = Clock.System.now(), from = task.from, to = task.to
+        )
+        executor.run(newTask.expression, newTask.from, newTask.to, newTask.id)
     }
 
     private fun genId() = "__" + UUID.randomUUID().toString().replace("-", "")
