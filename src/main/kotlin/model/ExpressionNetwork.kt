@@ -8,7 +8,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
@@ -30,7 +30,7 @@ abstract class ExpressionNetwork(
     private val backgroundTasks = CoroutineScope(dispatcher)
 
     private class UpdateState(
-        val lock: Mutex = Mutex(), val reqCount: AtomicInteger = AtomicInteger(0)
+        val lock: Mutex = Mutex(), val isUpdating: AtomicBoolean = AtomicBoolean(false)
     )
 
     private suspend fun getNode(id: DataId): Node? {
@@ -143,14 +143,11 @@ abstract class ExpressionNetwork(
 
     private suspend fun updateRootSafe(node: Node) {
         val updateState = getUpdateState(node)
-        updateState.reqCount.getAndIncrement()
-        if (updateState.reqCount.get() > 1) {
-            updateState.reqCount.getAndDecrement()
+        if (!updateState.isUpdating.compareAndSet(false, true)) {
             return
         }
         coroutineScope {
             updateState.lock.withLock {
-                updateState.reqCount.getAndDecrement()
                 val downstream = updateDownstream(node)
                 for (down in downstream) {
                     if (down.shouldUpdate) {
@@ -159,6 +156,7 @@ abstract class ExpressionNetwork(
                         }
                     }
                 }
+                updateState.isUpdating.set(false)
             }
         }
     }
