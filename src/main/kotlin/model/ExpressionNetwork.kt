@@ -141,14 +141,14 @@ abstract class ExpressionNetwork(
         }
     }
 
-    private fun updateRootSafe(node: Node) {
-        runBlocking {
-            val updateState = getUpdateState(node)
-            updateState.reqCount.getAndIncrement()
-            if (updateState.reqCount.get() > 1) {
-                updateState.reqCount.getAndDecrement()
-                return@runBlocking
-            }
+    private suspend fun updateRootSafe(node: Node) {
+        val updateState = getUpdateState(node)
+        updateState.reqCount.getAndIncrement()
+        if (updateState.reqCount.get() > 1) {
+            updateState.reqCount.getAndDecrement()
+            return
+        }
+        coroutineScope {
             updateState.lock.withLock {
                 updateState.reqCount.getAndDecrement()
                 val downstream = updateDownstream(node)
