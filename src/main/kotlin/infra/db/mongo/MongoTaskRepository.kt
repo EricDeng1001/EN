@@ -2,9 +2,9 @@ package infra.db.mongo
 
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
+import com.mongodb.client.model.Sorts
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.*
 import model.*
 import org.bson.codecs.pojo.annotations.BsonId
@@ -63,11 +63,12 @@ object MongoTaskRepository : TaskRepository {
             .map { it.toModel() }.firstOrNull()
     }
 
-    override suspend fun getListByDataIds(ids: List<DataId>): List<Task> {
-        val idList = ids.map { it.str }
-        return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(Filters.`in`
-            ("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", idList))
-            .map { it.toModel() }.toList()
+    override suspend fun getTaskByDataId(id: DataId): Task? {
+        return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(
+            Filters.eq
+            ("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str))
+            .sort( Sorts.descending(TaskDO::start.name) )
+            .map { it.toModel() }.firstOrNull()
     }
 
     override suspend fun delete(id: TaskId) {

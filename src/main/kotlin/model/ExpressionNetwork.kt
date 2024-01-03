@@ -541,8 +541,11 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun getTasksByDataId(ids: List<DataId>): List<Task> {
-        val tasks = taskRepository.getListByDataIds(ids)
+    suspend fun getTasksByDataId(ids: List<DataId>): List<Task?> {
+        val tasks = mutableListOf<Task?>()
+        ids.forEach {
+            tasks.add(taskRepository.getTaskByDataId(it))
+        }
         logger.info("find ${tasks.size} tasks by taskIds: $ids")
         return tasks
     }

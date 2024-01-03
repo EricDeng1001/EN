@@ -5,7 +5,7 @@ interface TaskRepository {
 
     suspend fun get(id: TaskId): Task?
 
-    suspend fun getListByDataIds(ids: List<DataId>): List<Task>
+    suspend fun getTaskByDataId(id: DataId): Task?
 
     suspend fun delete(id: TaskId)
 }
