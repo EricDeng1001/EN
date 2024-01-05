@@ -22,17 +22,14 @@ data class TaskDO(
     var failedReason: String? = null
 ) {
     fun toModel(): Task {
-        return Task(
-            id = taskId,
+        return Task(id = taskId,
             expression = expression.toModel(),
             from = from?.let { Pointer(it) } ?: Pointer.ZERO,
             to = to?.let { Pointer(it) } ?: Pointer.ZERO,
-            start = start?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
-                ?: Instant.DISTANT_PAST,
+            start = start?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault()) ?: Instant.DISTANT_PAST,
             finish = finish?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
                 ?: Instant.DISTANT_PAST,
-            failedReason = failedReason
-        )
+            failedReason = failedReason)
     }
 }
 
@@ -65,13 +62,20 @@ object MongoTaskRepository : TaskRepository {
 
     override suspend fun getTaskByDataId(id: DataId): Task? {
         return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(
-            Filters.eq
-            ("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str))
-            .sort( Sorts.descending(TaskDO::start.name) )
-            .map { it.toModel() }.firstOrNull()
+            Filters.eq("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str)
+        ).sort(Sorts.descending(TaskDO::start.name)).map { it.toModel() }.firstOrNull()
     }
 
     override suspend fun delete(id: TaskId) {
         MongoConnection.getCollection<TaskDO>(TASKS_TABLE).deleteOne(Filters.eq(TaskDO::taskId.name, id))
+    }
+
+    override suspend fun getTaskByDataIdAndTo(id: DataId, to: Pointer): Task? {
+        return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(
+            Filters.and(
+                Filters.eq("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str),
+                Filters.eq(TaskDO::to.name, to.value)
+            )
+        ).sort(Sorts.descending(TaskDO::start.name)).map { it.toModel() }.firstOrNull()
     }
 }

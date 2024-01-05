@@ -75,12 +75,17 @@ class MockTaskRepo : TaskRepository {
     }
 
     override suspend fun get(id: TaskId): Task? = idMap[id]
-    override suspend fun getListByDataIds(ids: List<DataId>): List<Task> {
-        TODO("Not yet implemented")
+    override suspend fun getTaskByDataId(id: DataId): Task? {
+        return idMap.values.find { it.expression.outputs.contains(id) }
     }
+
 
     override suspend fun delete(id: TaskId) {
         idMap.remove(id)
+    }
+
+    override suspend fun getTaskByDataIdAndTo(id: DataId, to: Pointer): Task? {
+        return idMap.values.filter { t -> t.expression.outputs.contains(id) && t.to == to }.firstOrNull()
     }
 
 }
@@ -95,7 +100,7 @@ class MockExecutor : Executor {
                 if (isSuccess) {
                     callback.succeedRun(withId)
                 } else {
-                    callback.failedRun(withId,"Failed Reason")
+                    callback.failedRun(withId, "Failed Reason")
                 }
             }
         }, 100) // 主要是为了隔离线程
@@ -108,7 +113,7 @@ class MockExecutor : Executor {
 
 }
 
-class MockMQ: MessageQueue {
+class MockMQ : MessageQueue {
     override suspend fun pushRunning(id: DataId) {
         return
     }
@@ -126,11 +131,13 @@ class MockMQ: MessageQueue {
     }
 
 }
-class MockPerf: PerformanceService {
+
+class MockPerf : PerformanceService {
     override suspend fun calculate(id: DataId) {
     }
 
 }
+
 class ExpressionNetworkTest(
     val nodeRepository: MockNodeRepo,
     val taskRepository: MockTaskRepo,
@@ -177,8 +184,10 @@ object TestCases {
             en.nodeRepository.queryByOutput(d2)!!.effectivePtr = Pointer(10)
             var genIds = en.add(
                 Expression(
-                    inputs = listOf(Input(type = InputType.DataId, ids = listOf(d1)),
-                        Input(type = InputType.DataId, ids = listOf(d2))),
+                    inputs = listOf(
+                        Input(type = InputType.DataId, ids = listOf(d1)),
+                        Input(type = InputType.DataId, ids = listOf(d2))
+                    ),
                     outputs = listOf(p1),
                     f1,
                     dataflow = "",

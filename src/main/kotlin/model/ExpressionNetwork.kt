@@ -542,15 +542,17 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun getTasksByDataId(ids: List<DataId>): List<Task> {
-        val tasks = mutableListOf<Task>()
-        ids.forEach {
-            val task = taskRepository.getTaskByDataId(it)
-            if (task!=null) {
-                tasks.add(task)
-            }
-        }
+        val tasks = ids.mapNotNull { getTaskByDataId(it) }.toList()
         logger.info("find ${tasks.size} tasks by taskIds: $ids")
         return tasks
+    }
+
+    suspend fun getTaskByDataId(id: DataId): Task? {
+        return taskRepository.getTaskByDataId(id)
+    }
+
+    suspend fun getTaskByDataIdAndTo(id: DataId, to: Pointer): Task? {
+        return taskRepository.getTaskByDataIdAndTo(id, to)
     }
 
 }

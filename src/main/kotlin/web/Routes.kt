@@ -60,6 +60,24 @@ fun Route.httpRoutes() {
         call.respond(ExpressionNetworkImpl.queryExpressionsState(ids).map { ExpressionState(it.first, it.second) })
     }
 
+    get("/expression/latest/task") {
+        val id: DataId =
+            call.request.queryParameters["id"]?.let { DataId(it) } ?: throw IllegalArgumentException("id is required")
+        val to = call.request.queryParameters["to"]?.toIntOrNull()
+
+        val ret = if (to != null) {
+            ExpressionNetworkImpl.getTaskByDataIdAndTo(id, Pointer(to))
+        } else {
+            ExpressionNetworkImpl.getTaskByDataId(id)
+        }
+
+        if (ret == null) {
+            call.respond(HttpStatusCode.OK)
+        } else {
+            call.respond(ret)
+        }
+    }
+
     post("/run/root") {
         val req = call.receive<RunRootRequest>()
         ExpressionNetworkImpl.updateRoot(DataId(req.dataId), Pointer(req.effectivePtr))
