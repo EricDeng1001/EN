@@ -196,7 +196,14 @@ abstract class ExpressionNetwork(
         }.toList())
 
         for (next in nextLevel) {
-            if (root.shouldUpdate == next.shouldUpdate) {
+            if (root.expression.isRoot()) {
+                if (next.shouldUpdate) {
+                    logger.debug("{} downstream update: {}", root.idStr, next.idStr)
+                    backgroundTasks.launch {
+                        tryRunExpressionNode(next)
+                    }
+                }
+            } else if (root.shouldUpdate == next.shouldUpdate) {
                 logger.debug("{} downstream update: {}", root.idStr, next.idStr)
                 backgroundTasks.launch {
                     tryRunExpressionNode(next)
