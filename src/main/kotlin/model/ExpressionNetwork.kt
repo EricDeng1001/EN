@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.collections.ArrayList
 import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
@@ -147,14 +148,7 @@ abstract class ExpressionNetwork(
         backgroundTasks.launch {
             coroutineScope {
                 updateState.lock.withLock {
-                    val downstream = updateDownstream(node)
-                    for (down in downstream) {
-                        if (down.shouldUpdate) {
-                            launch {
-                                tryRunExpressionNode(down) // try run (this start a new run session)
-                            }
-                        }
-                    }
+                    updateDownstream(node)
                 }
             }
             updateState.isUpdating.set(false)
@@ -214,32 +208,18 @@ abstract class ExpressionNetwork(
         logger.debug("{} downstream size: {}, {}", root.idStr, nextLevel.size, nextLevel.map {
             it.expression.outputs[0].str
         }.toList())
+
         val changed = ArrayList<Node>()
-        for (node in nextLevel) {
-            val newPtr = if (node.expression.inputs.size == 1) {
-                root.effectivePtr
-            } else {
-                logger.debug("{} -> {} findExp", root.idStr, node.idStr)
-                findExpectedPtr(node.expression)
-            }
-            logger.debug(
-                "{} inspecting: {}, exp: {}, newPtr: {}", root.idStr, node.idStr, node.expectedPtr.value, newPtr.value
-            )
-            // this check prevents double run
-            if (newPtr != root.effectivePtr) { // not this update
-                logger.warn(
-                    "{} -> {} a double parent concurrent update happens, and node info leaked", root.idStr, node.idStr
-                )
-                continue
-            }
-            if (node.expectedPtr != newPtr) {
-                logger.debug("{} updated downstream {} exp to {}", root.idStr, node.idStr, newPtr)
-                node.expectedPtr = newPtr
-                changed.add(node)
+        for (next in nextLevel) {
+            if (root.shouldUpdate == next.shouldUpdate) {
+                changed.add(next)
+                logger.debug("{} downstream update: {}", root.idStr, next.idStr)
+                backgroundTasks.launch {
+                    tryRunExpressionNode(next)
+                }
             }
         }
 
-        nodeRepository.saveAll(changed)
         return changed
     }
 
@@ -257,6 +237,14 @@ abstract class ExpressionNetwork(
                 if (!node.valid) {
                     logger.debug("{} invalid", node.idStr)
                     pushFailed(node, "expression not valid due to upstream invalid or self invalid")
+                    return
+                }
+
+                val newPtr = findExpectedPtr(node.expression)
+                if (node.expectedPtr != newPtr) {
+                    node.expectedPtr = newPtr
+                } else {
+                    logger.debug("{} expected ptr {} not changed", node.idStr, newPtr.value)
                     return
                 }
 
@@ -323,14 +311,7 @@ abstract class ExpressionNetwork(
             taskRepository.save(task)
             pushFinished(node)
 
-            val downstream = updateDownstream(node)
-            for (down in downstream) {
-                if (down.shouldUpdate == node.shouldUpdate) {
-                    launch {
-                        tryRunExpressionNode(down) // try run (this start a new run session)
-                    }
-                }
-            }
+            updateDownstream(node)
         }
     }
 
@@ -461,7 +442,7 @@ abstract class ExpressionNetwork(
         expression.outputs = result
         val node = Node(
             effectivePtr = Pointer.ZERO,
-            expectedPtr = findExpectedPtr(expression),
+            expectedPtr = Pointer.ZERO,
             expression = expression,
             valid = true,
         )
