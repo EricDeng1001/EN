@@ -140,21 +140,7 @@ abstract class ExpressionNetwork(
         }
     }
 
-    private fun updateRootSafeAsync(node: Node) {
-        val updateState = getUpdateState(node)
-        if (!updateState.isUpdating.compareAndSet(false, true)) {
-            return
-        }
-        backgroundTasks.launch {
-            coroutineScope {
-                updateState.lock.withLock {
-                    updateDownstream(node)
-                }
-            }
-            updateState.isUpdating.set(false)
-        }
-    }
-
+    private suspend fun updateRootSafeAsync(node: Node) = updateDownstream(node)
     suspend fun reUpdateRoot(id: DataId, resetPtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
@@ -203,16 +189,14 @@ abstract class ExpressionNetwork(
     }
 
 
-    private suspend fun updateDownstream(root: Node): List<Node> {
+    private suspend fun updateDownstream(root: Node) {
         val nextLevel = downstreamOneLevel(root)
         logger.debug("{} downstream size: {}, {}", root.idStr, nextLevel.size, nextLevel.map {
             it.expression.outputs[0].str
         }.toList())
 
-        val changed = ArrayList<Node>()
         for (next in nextLevel) {
             if (root.shouldUpdate == next.shouldUpdate) {
-                changed.add(next)
                 logger.debug("{} downstream update: {}", root.idStr, next.idStr)
                 backgroundTasks.launch {
                     tryRunExpressionNode(next)
@@ -220,7 +204,6 @@ abstract class ExpressionNetwork(
             }
         }
 
-        return changed
     }
 
     private suspend fun tryRunExpressionNode(node: Node) {
@@ -229,7 +212,7 @@ abstract class ExpressionNetwork(
 
             val mutex = getNodeLock(node)
             mutex.withLock {
-                if (states.containsKey(node.id) && states[node.id] == NodeState.RUNNING) {
+                if (states[node.id] == NodeState.RUNNING) {
                     logger.debug("{} already running", node.idStr)
                     return
                 }
@@ -245,16 +228,10 @@ abstract class ExpressionNetwork(
                     node.expectedPtr = newPtr
                 } else {
                     logger.debug("{} expected ptr {} not changed", node.idStr, newPtr.value)
-                    return
                 }
 
                 if (!node.shouldRun()) {
                     logger.debug("{} should not run", node.idStr)
-                    if (node.effectivePtr != Pointer.ZERO) {
-                        if (tryCalcPerf(node)) {
-                            nodeRepository.save(node)
-                        }
-                    }
                     return
                 }
 
@@ -458,25 +435,25 @@ abstract class ExpressionNetwork(
         return listOf(expression.outputs[0])
     }
 
-    private suspend fun tryBatch(node: Node, to: Pointer): BatchExpression {
-        val batchList = ArrayList<Expression>()
-        tryBatchInternal(batchList, node, to)
-        return BatchExpression(batchList)
-    }
-
-    private tailrec suspend fun tryBatchInternal(
-        batchList: ArrayList<Expression>, node: Node, to: Pointer
-    ) {
-        if (upstreamOneLevel(node).filter { it != node }.map { it.effectivePtr >= to }.fold(true, Boolean::and)) {
-            val downstream = downstreamOneLevel(node)
-            val first = downstream.first()
-            batchList.add(node.expression)
-            node.expectedPtr = to
-            if (downstream.size == 1 && !node.mustCalculate) {
-                tryBatchInternal(batchList, first, to)
-            }
-        }
-    }
+//    private suspend fun tryBatch(node: Node, to: Pointer): BatchExpression {
+//        val batchList = ArrayList<Expression>()
+//        tryBatchInternal(batchList, node, to)
+//        return BatchExpression(batchList)
+//    }
+//
+//    private tailrec suspend fun tryBatchInternal(
+//        batchList: ArrayList<Expression>, node: Node, to: Pointer
+//    ) {
+//        if (upstreamOneLevel(node).filter { it != node }.map { it.effectivePtr >= to }.fold(true, Boolean::and)) {
+//            val downstream = downstreamOneLevel(node)
+//            val first = downstream.first()
+//            batchList.add(node.expression)
+//            node.expectedPtr = to
+//            if (downstream.size == 1 && !node.mustCalculate) {
+//                tryBatchInternal(batchList, first, to)
+//            }
+//        }
+//    }
 
     private fun getUpdateState(node: Node) = updateStates.computeIfAbsent(node.id) { UpdateState() }
 
