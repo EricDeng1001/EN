@@ -226,6 +226,7 @@ abstract class ExpressionNetwork(
                 val newPtr = findExpectedPtr(node.expression)
                 if (node.expectedPtr != newPtr) {
                     node.expectedPtr = newPtr
+                    nodeRepository.save(node)
                 } else {
                     logger.debug("{} expected ptr {} not changed", node.idStr, newPtr.value)
                 }
