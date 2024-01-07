@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.collections.ArrayList
 import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
@@ -196,14 +195,7 @@ abstract class ExpressionNetwork(
         }.toList())
 
         for (next in nextLevel) {
-            if (root.expression.isRoot()) {
-                if (next.shouldUpdate) {
-                    logger.debug("{} downstream update: {}", root.idStr, next.idStr)
-                    backgroundTasks.launch {
-                        tryRunExpressionNode(next)
-                    }
-                }
-            } else if (root.shouldUpdate == next.shouldUpdate) {
+            if (root.shouldUpdate == next.shouldUpdate) {
                 logger.debug("{} downstream update: {}", root.idStr, next.idStr)
                 backgroundTasks.launch {
                     tryRunExpressionNode(next)
