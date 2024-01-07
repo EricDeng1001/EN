@@ -39,6 +39,7 @@ data class Node(
             expression = expression,
             effectivePtr = Pointer.ZERO,
             expectedPtr = Pointer.ZERO,
+            shouldUpdate = true
         )
     }
 }
