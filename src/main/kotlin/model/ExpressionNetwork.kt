@@ -187,6 +187,10 @@ abstract class ExpressionNetwork(
         }
     }
 
+    suspend fun forceRun(id: DataId) {
+        val node = getNode(id) ?: return
+        tryRunExpressionNode(node)
+    }
 
     private suspend fun updateDownstream(root: Node) {
         val nextLevel = downstreamOneLevel(root)
