@@ -25,6 +25,7 @@ abstract class ExpressionNetwork(
 
     private val MUTEX_SIZE: Int = 1024
     private val nodeLocks: Array<Mutex> = Array(MUTEX_SIZE) { Mutex() }
+    private val tryRunTasksQueue = ConcurrentHashMap.newKeySet<NodeId>(32)
 
     @OptIn(DelicateCoroutinesApi::class)
     private val dispatcher = newFixedThreadPoolContext(Runtime.getRuntime().availableProcessors(), "en-background")
@@ -221,6 +222,8 @@ abstract class ExpressionNetwork(
             mutex.withLock {
                 if (states[node.id] == NodeState.RUNNING) {
                     logger.debug("{} already running", node.idStr)
+                    if (!tryRunTasksQueue.add(node.id)) logger.debug("{} already in task queue", node.idStr)
+                    logger.debug("{} add to task queue", node.idStr)
                     return
                 }
 
@@ -294,6 +297,14 @@ abstract class ExpressionNetwork(
             tryCalcPerf(node)
             nodeRepository.save(node)
             taskRepository.save(task)
+
+            if (tryRunTasksQueue.contains(node.id)){
+                logger.debug("start to try run task queue node: {}", node.idStr)
+                tryRunExpressionNode(node)
+                tryRunTasksQueue.remove(node.id)
+                return@launch
+            }
+
             pushFinished(node)
 
             updateDownstream(node)
