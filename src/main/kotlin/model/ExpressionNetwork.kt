@@ -448,7 +448,7 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun markDepth(root: Node, i: Int) {
-        if (root.depth > i) { // root and it's children's depth is already bigger
+        if (root.depth >= i) { // root and it's children's depth is already bigger
             return
         }
         root.depth = i
