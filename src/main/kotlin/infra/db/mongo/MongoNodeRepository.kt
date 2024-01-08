@@ -1,6 +1,5 @@
 package infra.db.mongo
 
-import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.ReplaceOneModel
 import com.mongodb.client.model.ReplaceOptions
@@ -10,7 +9,7 @@ import kotlinx.coroutines.flow.toList
 import model.*
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
-import java.util.TreeMap
+import java.util.*
 
 data class NodeDO(
     @BsonId val mongoId: ObjectId? = null,
@@ -21,8 +20,22 @@ data class NodeDO(
     val expression: ExpressionDO,
     val isPerfCalculated: Boolean? = null,
     val mustCalculate: Boolean? = null,
-    val shouldUpdate: Boolean? = null
+    val shouldUpdate: Boolean? = null,
+    var depth: Int? = null
 ) {
+    fun toModel(): Node {
+        return Node(
+            valid,
+            Pointer(effectivePtr),
+            Pointer(expectedPtr),
+            expression = expression.toModel(),
+            isPerfCalculated = isPerfCalculated ?: false,
+            mustCalculate = mustCalculate ?: false,
+            shouldUpdate = shouldUpdate ?: false,
+            depth = depth ?: 0
+        )
+    }
+
     data class InputDO(
         val type: String,
         val ids: List<String>
@@ -43,6 +56,7 @@ data class NodeDO(
         val dataflow: String,
         val arguments: TreeMap<String, ArgumentDO>
     ) {
+
         data class ArgumentDO(val value: String, val type: String) {
             fun toModel(): Argument {
                 return Argument(value, type)
@@ -59,18 +73,6 @@ data class NodeDO(
             )
         }
     }
-
-    fun toModel(): Node {
-        return Node(
-            valid,
-            Pointer(effectivePtr),
-            Pointer(expectedPtr),
-            expression = expression.toModel(),
-            isPerfCalculated = isPerfCalculated ?: false,
-            mustCalculate = mustCalculate ?: false,
-            shouldUpdate = shouldUpdate ?: false
-        )
-    }
 }
 
 fun Node.toMongo(): NodeDO {
@@ -83,7 +85,8 @@ fun Node.toMongo(): NodeDO {
         expression.toMongo(),
         isPerfCalculated,
         mustCalculate = mustCalculate,
-        shouldUpdate = shouldUpdate
+        shouldUpdate = shouldUpdate,
+        depth = depth
     )
 }
 
@@ -124,7 +127,7 @@ object MongoNodeRepository : NodeRepository {
 
     override suspend fun saveAll(nodes: Iterable<Node>) {
         val operations = nodes.map { ReplaceOneModel(eq("id", it.idStr), it.toMongo(), ReplaceOptions().upsert(true)) }
-        if(operations.isNotEmpty()){
+        if (operations.isNotEmpty()) {
             MongoConnection.getCollection<NodeDO>(NODES_TABLE).bulkWrite(operations)
         }
     }

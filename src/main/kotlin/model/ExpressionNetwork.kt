@@ -19,7 +19,6 @@ abstract class ExpressionNetwork(
     private val performanceService: PerformanceService
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
-    private val updateStates: MutableMap<Node.Id, UpdateState> = ConcurrentHashMap()
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
 
     private val MUTEX_SIZE: Int = 1024
@@ -29,10 +28,6 @@ abstract class ExpressionNetwork(
     @OptIn(DelicateCoroutinesApi::class)
     private val dispatcher = newFixedThreadPoolContext(Runtime.getRuntime().availableProcessors(), "en-background")
     private val backgroundTasks = CoroutineScope(dispatcher)
-
-    private class UpdateState(
-        val lock: Mutex = Mutex(), val isUpdating: AtomicBoolean = AtomicBoolean(false)
-    )
 
     private suspend fun getNode(id: DataId): Node? {
         return nodeRepository.queryByOutput(id)
@@ -188,6 +183,10 @@ abstract class ExpressionNetwork(
         }
     }
 
+    suspend fun forceRun(id: DataId) {
+        val node = getNode(id) ?: return
+        tryRunExpressionNode(node)
+    }
 
     private suspend fun updateDownstream(root: Node) {
         val nextLevel = downstreamOneLevel(root)
@@ -196,14 +195,7 @@ abstract class ExpressionNetwork(
         }.toList())
 
         for (next in nextLevel) {
-            if (root.expression.isRoot()) {
-                if (next.shouldUpdate) {
-                    logger.debug("{} downstream update: {}", root.idStr, next.idStr)
-                    backgroundTasks.launch {
-                        tryRunExpressionNode(next)
-                    }
-                }
-            } else if (root.shouldUpdate == next.shouldUpdate) {
+            if (root.shouldUpdate == next.shouldUpdate) {
                 logger.debug("{} downstream update: {}", root.idStr, next.idStr)
                 backgroundTasks.launch {
                     tryRunExpressionNode(next)
@@ -448,6 +440,7 @@ abstract class ExpressionNetwork(
             expectedPtr = Pointer.ZERO,
             expression = expression,
             valid = true,
+            depth = findDepth(expression)
         )
         nodeRepository.save(node)
         return result
@@ -459,6 +452,30 @@ abstract class ExpressionNetwork(
             nodeRepository.save(node)
         }
         return listOf(expression.outputs[0])
+    }
+
+    private suspend fun findDepth(expression: Expression): Int {
+        return upstreamOneLevel(expression).maxOf { it.depth } + 1
+    }
+
+    suspend fun calcDepthForAll() {
+        val roots = nodeRepository.queryAllRoot()
+        for (root in roots) {
+            root.depth = -1
+            markDepth(root, 0)
+        }
+
+    }
+
+    private suspend fun markDepth(root: Node, i: Int) {
+        if (root.depth >= i) { // root and it's children's depth is already bigger
+            return
+        }
+        root.depth = i
+        nodeRepository.save(root)
+        for (n in downstreamOneLevel(root)) {
+            markDepth(n, i + 1)
+        }
     }
 
 //    private suspend fun tryBatch(node: Node, to: Pointer): BatchExpression {
@@ -480,8 +497,6 @@ abstract class ExpressionNetwork(
 //            }
 //        }
 //    }
-
-    private fun getUpdateState(node: Node) = updateStates.computeIfAbsent(node.id) { UpdateState() }
 
     private fun getNodeLock(node: Node): Mutex {
         return getNodeLock(node.id)

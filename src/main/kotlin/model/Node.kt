@@ -12,6 +12,7 @@ enum class NodeState(val value: String) {
 }
 
 typealias NodeId = Node.Id
+
 @Serializable
 data class Node(
     var valid: Boolean = true,
@@ -21,10 +22,13 @@ data class Node(
     var mustCalculate: Boolean = false,
     var isPerfCalculated: Boolean = false,
     var shouldUpdate: Boolean = false,
+    var depth: Int = 0
 ) {
+
     @Serializable
     @JvmInline
     value class Id(val str: String)
+
     fun shouldRun(): Boolean = expectedPtr > effectivePtr
 
     val id get() = Id(expression.outputs[0].str)
@@ -39,6 +43,8 @@ data class Node(
             expression = expression,
             effectivePtr = Pointer.ZERO,
             expectedPtr = Pointer.ZERO,
+            depth = 0,
+            shouldUpdate = true
         )
     }
 }
