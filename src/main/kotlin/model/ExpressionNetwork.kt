@@ -442,6 +442,7 @@ abstract class ExpressionNetwork(
     suspend fun calcDepthForAll() {
         val roots = nodeRepository.queryAllRoot()
         for (root in roots) {
+            root.depth = -1
             markDepth(root, 0)
         }
 
