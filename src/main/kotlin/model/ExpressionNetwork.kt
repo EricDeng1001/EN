@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.collections.ArrayList
 import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
@@ -291,23 +290,31 @@ abstract class ExpressionNetwork(
         val task = taskRepository.get(id) ?: return
         backgroundTasks.launch {
             val node = getNode(task.nodeId)!!
-            states[node.id] = NodeState.FINISHED
+            var run = false
+            if (tryRunTasksQueue.contains(node.id)) {
+                val mutex = getNodeLock(node)
+                mutex.withLock {
+                    states[node.id] = NodeState.FINISHED
+                    tryRunTasksQueue.remove(node.id)
+                }
+                logger.debug("start to try run task queue node: {}", node.idStr)
+                run = true
+            } else {
+                states[node.id] = NodeState.FINISHED
+            }
             node.effectivePtr = task.to
             task.finish = Clock.System.now()
             tryCalcPerf(node)
             nodeRepository.save(node)
             taskRepository.save(task)
 
-            if (tryRunTasksQueue.contains(node.id)){
-                logger.debug("start to try run task queue node: {}", node.idStr)
-                tryRunExpressionNode(node)
-                tryRunTasksQueue.remove(node.id)
-                return@launch
-            }
-
             pushFinished(node)
 
             updateDownstream(node)
+
+            if (run) {
+                tryRunExpressionNode(node)
+            }
         }
     }
 
