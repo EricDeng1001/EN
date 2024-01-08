@@ -282,11 +282,14 @@ abstract class ExpressionNetwork(
         backgroundTasks.launch {
             val node = getNode(task.nodeId)!!
             var run = false
-            states[node.id] = NodeState.FINISHED
-            if (tryRunTasksQueue.contains(node.id)) {
-                tryRunTasksQueue.remove(node.id)
-                logger.debug("start to try run task queue node: {}", node.idStr)
-                run = true
+            val mutex = getNodeLock(node)
+            mutex.withLock {
+                states[node.id] = NodeState.FINISHED
+                if (tryRunTasksQueue.contains(node.id)) {
+                    tryRunTasksQueue.remove(node.id)
+                    logger.debug("start to try run task queue node: {}", node.idStr)
+                    run = true
+                }
             }
             node.effectivePtr = task.to
             task.finish = Clock.System.now()
