@@ -8,7 +8,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
@@ -283,15 +282,13 @@ abstract class ExpressionNetwork(
         backgroundTasks.launch {
             val node = getNode(task.nodeId)!!
             var run = false
-            if (tryRunTasksQueue.contains(node.id)) {
-                val mutex = getNodeLock(node)
-                mutex.withLock {
-                    states[node.id] = NodeState.FINISHED
+            val mutex = getNodeLock(node)
+            mutex.withLock {
+                if (tryRunTasksQueue.contains(node.id)) {
                     tryRunTasksQueue.remove(node.id)
+                    logger.debug("start to try run task queue node: {}", node.idStr)
+                    run = true
                 }
-                logger.debug("start to try run task queue node: {}", node.idStr)
-                run = true
-            } else {
                 states[node.id] = NodeState.FINISHED
             }
             node.effectivePtr = task.to
