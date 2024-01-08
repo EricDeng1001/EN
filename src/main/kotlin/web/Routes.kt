@@ -145,19 +145,6 @@ fun Route.httpRoutes() {
         ExpressionNetworkImpl.rerun(id)
     }
 
-    get("/delay") {
-
-        coroutineScope {
-            launch {
-                val x = fib(call.request.queryParameters["n"]?.toInt() ?: 1)
-                println(x)
-                delay(10000)
-            }
-            println("1234")
-            call.respond("1234")
-        }
-
-    }
 }
 
 fun fib(n: Int): Int {
