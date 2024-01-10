@@ -15,7 +15,8 @@ abstract class ExpressionNetwork(
     private val taskRepository: TaskRepository,
     private val executor: Executor,
     private val messageQueue: MessageQueue,
-    private val performanceService: PerformanceService
+    private val performanceService: PerformanceService,
+    private val symbolLibraryService: SymbolLibraryService
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
@@ -266,13 +267,29 @@ abstract class ExpressionNetwork(
         }
     }
 
+    private fun getPreTimePointer(pointer: Pointer, offset: Int, freq: Int): Pointer {
+        val preTimePoint = ((pointer.value - offset) / freq) * freq + offset
+        return Pointer(preTimePoint)
+    }
+
+    private suspend fun normalizePointer(dataId: DataId, pointer: Pointer): Pointer {
+        return try {
+            symbolLibraryService.getSymbol(SymbolId(dataId.str)).let { symbol ->
+                getPreTimePointer(pointer, symbol.offsetValue, symbol.frequencyValue)
+            }
+        } catch (e: Exception) {
+            logger.error("Error normalizing pointer: ${e.message}")
+            pointer
+        }
+    }
+
     private suspend fun findExpectedPtr(expression: Expression): Pointer {
         val nodes = upstreamOneLevel(expression)
         var expectedPtr: Pointer = Pointer.MAX
         for (node in nodes) {
             expectedPtr = minOf(node.effectivePtr, expectedPtr)
         }
-        return expectedPtr
+        return normalizePointer(expression.outputs[0], expectedPtr)
     }
 
     // end 1

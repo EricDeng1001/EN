@@ -1,0 +1,5 @@
+http: true
+host: "172.18.10.64"
+port: 8080
+url:
+  get-symbol: "/symbol/{symbol_id}"

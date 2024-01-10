@@ -11,7 +11,8 @@ object ExpressionNetworkImpl : ExpressionNetwork(
     MongoTaskRepository,
     HttpExecutor,
     WebSocketNotification,
-    HttpPerformanceService
+    HttpPerformanceService,
+    HttpSymbolLibrary,
 ) {
 
 }
