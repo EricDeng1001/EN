@@ -246,7 +246,7 @@ abstract class ExpressionNetwork(
                 try {
                     logger.info("try to run expression node: $task")
                     val started =
-                        executor.run(node.expression, withId = task.id, from = node.effectivePtr, to = node.expectedPtr)
+                        executor.run(task)
                     logger.debug("start to run expression node: {}", task)
                     if (started) {
                         states[node.id] = NodeState.RUNNING
@@ -509,7 +509,7 @@ abstract class ExpressionNetwork(
         val newTask = Task(
             id = genId(), expression = task.expression, start = Clock.System.now(), from = task.from, to = task.to
         )
-        executor.run(newTask.expression, newTask.from, newTask.to, newTask.id)
+        executor.run(newTask)
     }
 
     suspend fun forceRerun(id: DataId) {
@@ -517,7 +517,7 @@ abstract class ExpressionNetwork(
         val newTask = Task(
             id = genId(), expression = node.expression, start = Clock.System.now(), from = Pointer.ZERO, to = node.expectedPtr
         )
-        executor.run(newTask.expression, newTask.from, newTask.to, newTask.id)
+        executor.run(newTask)
     }
 
     private fun genId() = "__" + UUID.randomUUID().toString().replace("-", "")
