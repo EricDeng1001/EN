@@ -512,6 +512,14 @@ abstract class ExpressionNetwork(
         executor.run(newTask.expression, newTask.from, newTask.to, newTask.id)
     }
 
+    suspend fun forceRerun(id: DataId) {
+        val node = getNode(id)?:return
+        val newTask = Task(
+            id = genId(), expression = node.expression, start = Clock.System.now(), from = Pointer.ZERO, to = node.expectedPtr
+        )
+        executor.run(newTask.expression, newTask.from, newTask.to, newTask.id)
+    }
+
     private fun genId() = "__" + UUID.randomUUID().toString().replace("-", "")
     private suspend fun pushRunning(node: Node) {
         for (id in node.ids()) {
