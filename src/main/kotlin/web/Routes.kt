@@ -40,6 +40,9 @@ data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<D
 @Serializable
 data class ExpressionState(val id: DataId, val state: String? = null)
 
+@Serializable
+data class SetEffExpRequest(val ids: List<DataId>, val eff: Int, val exp: Int)
+
 fun Route.httpRoutes() {
 
     get("/graph") {
@@ -134,9 +137,9 @@ fun Route.httpRoutes() {
         call.respond(HttpStatusCode.OK)
     }
 
-    post ("/set_eff_exp_zero") {
-        val ids = call.receive<List<DataId>>()
-        ExpressionNetworkImpl.setEff0Exp0(ids)
+    post("/set_eff_exp_zero") {
+        val req = call.receive<SetEffExpRequest>()
+        ExpressionNetworkImpl.setEff0Exp0(req.ids, Pointer(req.eff), Pointer(req.exp))
         call.respond(HttpStatusCode.OK)
     }
 
