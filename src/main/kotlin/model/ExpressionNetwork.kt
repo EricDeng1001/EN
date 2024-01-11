@@ -583,5 +583,12 @@ abstract class ExpressionNetwork(
         }
         nodeRepository.saveAll(res)
     }
+
+    suspend fun forceUpdateRoot(ids: List<DataId>) {
+        for (id in ids) {
+            val node = getNode(id) ?: continue
+            updateRootSafeAsync(node)
+        }
+    }
 }
 
