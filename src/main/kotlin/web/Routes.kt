@@ -134,6 +134,12 @@ fun Route.httpRoutes() {
         call.respond(HttpStatusCode.OK)
     }
 
+    post ("/set_eff_exp_zero") {
+        val ids = call.receive<List<DataId>>()
+        ExpressionNetworkImpl.setEff0Exp0(ids)
+        call.respond(HttpStatusCode.OK)
+    }
+
     post("/mark_should_update") {
         val ids = call.receive<List<DataId>>()
         ExpressionNetworkImpl.markShouldUpdate(ids)
