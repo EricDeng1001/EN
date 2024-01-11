@@ -278,7 +278,7 @@ abstract class ExpressionNetwork(
 
     // end 1
     suspend fun succeedRun(id: TaskId) {
-        delay(10 * 1000)
+        delay(60 * 1000)
         logger.info("succeed run: $id")
         val task = taskRepository.get(id) ?: return
         backgroundTasks.launch {
