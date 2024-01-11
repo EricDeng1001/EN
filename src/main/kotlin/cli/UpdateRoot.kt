@@ -1,6 +1,7 @@
 package cli
 
 import infra.ExpressionNetworkImpl
+import kotlinx.coroutines.delay
 import model.DataId
 
 suspend fun main() {
@@ -10,4 +11,6 @@ suspend fun main() {
         "vwap_min", "cd_lo_min", "cd_hi_min"
     ).map { DataId(it) }.toList()
     ExpressionNetworkImpl.forceUpdateRoot(x)
+
+    delay(3600 * 1000)
 }
