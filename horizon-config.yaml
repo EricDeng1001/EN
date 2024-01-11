@@ -1,8 +1,8 @@
 http: true
-host: "192.168.8.139"
-port: 45090
-username: audit
-password: 2022techfin
+host: "172.17.101.61"
+port: 80
+username: "audit"
+password: "2022techfin"
 url:
   login: "/cas/user/login"
   users: "/cas/audit/users"

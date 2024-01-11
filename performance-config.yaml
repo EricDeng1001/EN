@@ -1,5 +1,5 @@
 http: true
-host: "172.17.100.65"
-port: 50051
+host: "172.17.101.65"
+port: 8080
 url:
   calculate: "/perf/{id}"
