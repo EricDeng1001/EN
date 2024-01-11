@@ -257,12 +257,15 @@ abstract class ExpressionNetwork(
                     return
                 }
 
+                val priority: Int = if (node.shouldUpdate) 1 else 0
+
                 val task = Task(
                     id = genId(),
                     expression = node.expression,
                     start = Clock.System.now(),
                     from = node.effectivePtr,
-                    to = node.expectedPtr
+                    to = node.expectedPtr,
+                    priority = priority
                 )
                 try {
                     logger.info("try to run expression node: $task")
