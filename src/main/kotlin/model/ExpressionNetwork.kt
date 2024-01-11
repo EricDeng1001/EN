@@ -595,5 +595,15 @@ abstract class ExpressionNetwork(
         return taskRepository.getTaskByDataIdAndTo(id, to)
     }
 
+    suspend fun setEff0Exp0(ids: List<DataId>) {
+        val res = mutableListOf<Node>()
+        for (id in ids) {
+            val node = getNode(id) ?: continue
+            node.effectivePtr = Pointer.ZERO
+            node.expectedPtr = Pointer.ZERO
+            res.add(node)
+        }
+        nodeRepository.saveAll(res)
+    }
 }
 
