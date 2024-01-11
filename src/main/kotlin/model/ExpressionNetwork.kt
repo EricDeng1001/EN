@@ -278,11 +278,10 @@ abstract class ExpressionNetwork(
 
     // end 1
     suspend fun succeedRun(id: TaskId) {
-
         logger.info("succeed run: $id")
         val task = taskRepository.get(id) ?: return
         backgroundTasks.launch {
-            delay(60 * 1000)
+            delay(10 * 1000)
             val node = getNode(task.nodeId)!!
             var run = false
             val mutex = getNodeLock(node)
