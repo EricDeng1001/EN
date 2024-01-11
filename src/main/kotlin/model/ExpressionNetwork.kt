@@ -45,7 +45,7 @@ abstract class ExpressionNetwork(
                 strictMode = false, yamlNamingStrategy = YamlNamingStrategy.KebabCase
             )
         )
-        val configYaml = File("executor-config.yaml").readText()
+        val configYaml = File("en-config.yaml").readText()
         config = yaml.decodeFromString<EnConfig>(configYaml)
     }
 
