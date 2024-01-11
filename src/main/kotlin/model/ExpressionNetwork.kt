@@ -176,7 +176,7 @@ abstract class ExpressionNetwork(
     suspend fun runExpression(id: DataId) {
         val node = getNode(id) ?: return
         if (!node.shouldUpdate) {
-            runBlocking {
+            backgroundTasks.launch {
                 tryRunExpressionNode(node)
             }
         }
