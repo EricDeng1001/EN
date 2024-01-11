@@ -1,14 +1,23 @@
 package model
 
+import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlConfiguration
+import com.charleskorn.kaml.YamlNamingStrategy
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.absoluteValue
+import java.io.File
+
+@Serializable
+data class EnConfig(val delayMilliseconds: Long)
 
 abstract class ExpressionNetwork(
     private val nodeRepository: NodeRepository,
@@ -27,6 +36,18 @@ abstract class ExpressionNetwork(
     @OptIn(DelicateCoroutinesApi::class)
     private val dispatcher = newFixedThreadPoolContext(Runtime.getRuntime().availableProcessors(), "en-background")
     private val backgroundTasks = CoroutineScope(dispatcher)
+
+    private var config: EnConfig
+
+    init {
+        val yaml = Yaml(
+            configuration = YamlConfiguration(
+                strictMode = false, yamlNamingStrategy = YamlNamingStrategy.KebabCase
+            )
+        )
+        val configYaml = File("executor-config.yaml").readText()
+        config = yaml.decodeFromString<EnConfig>(configYaml)
+    }
 
     private suspend fun getNode(id: DataId): Node? {
         return nodeRepository.queryByOutput(id)
@@ -281,7 +302,7 @@ abstract class ExpressionNetwork(
         logger.info("succeed run: $id")
         val task = taskRepository.get(id) ?: return
         backgroundTasks.launch {
-            delay(10 * 1000)
+            delay(config.delayMilliseconds)
             val node = getNode(task.nodeId)!!
             var run = false
             val mutex = getNodeLock(node)
