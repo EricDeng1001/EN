@@ -63,7 +63,7 @@ abstract class ExpressionNetwork(
     suspend fun buildGraph(ids: List<DataId>): GraphView {
         val nodes: MutableList<Node> = ArrayList()
         for (id in ids) {
-            val node = nodeRepository.queryByOutput(id) ?: continue
+            val node = getNode(id) ?: continue
             nodes.add(node)
         }
         return Graph(nodes, emptyList()).view()
@@ -73,7 +73,7 @@ abstract class ExpressionNetwork(
         val nodes: MutableList<Node> = ArrayList()
         val inputs = HashSet<DataId>()
         for (id in ids) {
-            val node = nodeRepository.queryByOutput(id) ?: continue
+            val node = getNode(id) ?: continue
             nodes.add(node)
 
             inputs.addAll(node.expression.inputs.flatMap { it.ids }.toList())
@@ -82,7 +82,7 @@ abstract class ExpressionNetwork(
 
         val inputsNode = ArrayList<Node>()
         for (id in allInputs) {
-            val node = nodeRepository.queryByOutput(id) ?: continue
+            val node = getNode(id) ?: continue
             inputsNode.add(node)
         }
 
@@ -94,7 +94,7 @@ abstract class ExpressionNetwork(
         for (id in ids) {
             val state = states[NodeId(id.str)]
             if (state == null) {
-                val node = nodeRepository.queryByOutput(id)
+                val node = getNode(id)
                 if (node == null) {
                     res.add(id to null)
                 } else {
@@ -105,7 +105,7 @@ abstract class ExpressionNetwork(
                 }
             } else {
                 if (state == NodeState.SYSTEM_FAILED) {
-                    val node = nodeRepository.queryByOutput(id)
+                    val node = getNode(id)
                     if (node == null) {
                         res.add(id to null)
                     } else {
@@ -189,9 +189,10 @@ abstract class ExpressionNetwork(
 
     private suspend fun updateDownstream(root: Node) {
         val nextLevel = downstreamOneLevel(root)
-        logger.debug("{} downstream size: {}, {}", root.idStr, nextLevel.size, nextLevel.map {
+        val idList = nextLevel.map {
             it.expression.outputs[0].str
-        }.toList())
+        }.toList()
+        logger.debug("{} downstream size: {}, {}", root.idStr, idList.size, idList)
 
         for (next in nextLevel) {
             if (root.shouldUpdate == next.shouldUpdate) {
@@ -223,7 +224,7 @@ abstract class ExpressionNetwork(
                     return
                 }
 
-                val newPtr = findExpectedPtr(node.expression)
+                val newPtr = findExpectedPtr(node)
                 if (node.expectedPtr != newPtr) {
                     node.expectedPtr = newPtr
                     nodeRepository.save(node)
@@ -266,11 +267,11 @@ abstract class ExpressionNetwork(
         }
     }
 
-    private suspend fun findExpectedPtr(expression: Expression): Pointer {
-        val nodes = upstreamOneLevel(expression)
+    private suspend fun findExpectedPtr(node: Node): Pointer {
+        val nodes = upstreamOneLevel(node)
         var expectedPtr: Pointer = Pointer.MAX
-        for (node in nodes) {
-            expectedPtr = minOf(node.effectivePtr, expectedPtr)
+        for (it in nodes) {
+            expectedPtr = minOf(it.effectivePtr, expectedPtr)
         }
         return expectedPtr
     }
@@ -378,30 +379,13 @@ abstract class ExpressionNetwork(
         nodeRepository.save(node)
     }
 
-    private suspend fun upstreamOneLevel(expression: Expression): List<Node> {
-        val result = ArrayList<Node>()
-        for (input in expression.inputs) {
-            for (id in input.ids) {
-                result.add(getNode(id) ?: continue)
-            }
-        }
-        return result
+
+    private suspend fun upstreamOneLevel(node: Node): Iterable<Node> {
+        return nodeRepository.upstream1Lvl(node)
     }
 
-    private suspend fun upstreamOneLevel(node: Node): List<Node> {
-        return upstreamOneLevel(node.expression)
-    }
-
-    private suspend fun downstreamOneLevel(expression: Expression): List<Node> {
-        val result = ArrayList<Node>()
-        for (input in expression.outputs) {
-            result.addAll(findNodeByInput(input))
-        }
-        return result
-    }
-
-    private suspend fun downstreamOneLevel(node: Node): List<Node> {
-        return downstreamOneLevel(node.expression)
+    private suspend fun downstreamOneLevel(node: Node): Iterable<Node> {
+        return nodeRepository.downstream1Lvl(node)
     }
 
     suspend fun add(expression: Expression): List<DataId> {
@@ -437,22 +421,23 @@ abstract class ExpressionNetwork(
             expectedPtr = Pointer.ZERO,
             expression = expression,
             valid = true,
-            depth = findDepth(expression)
+            depth = 0
         )
+        node.depth = findDepth(node)
         nodeRepository.save(node)
         return result
     }
 
     private suspend fun saveRoot(expression: Expression): List<DataId> {
-        if (nodeRepository.queryByOutput(expression.outputs[0]) == null) {
+        if (getNode(expression.outputs[0]) == null) {
             val node = Node.makeRoot(expression)
             nodeRepository.save(node)
         }
         return listOf(expression.outputs[0])
     }
 
-    private suspend fun findDepth(expression: Expression): Int {
-        return upstreamOneLevel(expression).maxOf { it.depth } + 1
+    private suspend fun findDepth(node: Node): Int {
+        return upstreamOneLevel(node).maxOf { it.depth } + 1
     }
 
     suspend fun calcDepthForAll() {
@@ -513,9 +498,13 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun forceRerun(id: DataId) {
-        val node = getNode(id)?:return
+        val node = getNode(id) ?: return
         val newTask = Task(
-            id = genId(), expression = node.expression, start = Clock.System.now(), from = Pointer.ZERO, to = node.expectedPtr
+            id = genId(),
+            expression = node.expression,
+            start = Clock.System.now(),
+            from = Pointer.ZERO,
+            to = node.expectedPtr
         )
         executor.run(newTask)
     }
