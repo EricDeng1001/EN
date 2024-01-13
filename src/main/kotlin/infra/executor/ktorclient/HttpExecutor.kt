@@ -25,7 +25,9 @@ data class Url(val run: String, val tryCancel: String)
 data class ExecutorConfig(val http: Boolean, val host: String, val port: Int, val url: Url)
 
 @Serializable
-data class RunRequestBody(val expression: Expression, val start: Int, val end: Int, val taskId: TaskId)
+data class RunRequestBody(
+    val expression: Expression, val start: Int, val end: Int, val taskId: TaskId, val priority: Int
+)
 
 @Serializable
 data class RunResponseBody(val started: Boolean)
@@ -56,6 +58,7 @@ object HttpExecutor : Executor {
             connectTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
         }
     }
+
     override suspend fun run(task: Task): Boolean {
         val url = URLBuilder(
             protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
@@ -69,7 +72,8 @@ object HttpExecutor : Executor {
             contentType(ContentType.Application.Json)
             setBody(
                 RunRequestBody(
-                    expression = task.expression, start = task.from.value, end = task.to.value, taskId = task.id
+                    expression = task.expression, start = task.from.value, end = task.to.value, taskId = task.id,
+                    priority = task.priority
                 )
             )
         }

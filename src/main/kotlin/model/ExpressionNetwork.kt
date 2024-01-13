@@ -176,7 +176,7 @@ abstract class ExpressionNetwork(
     suspend fun runExpression(id: DataId) {
         val node = getNode(id) ?: return
         if (!node.shouldUpdate) {
-            runBlocking {
+            backgroundTasks.launch {
                 tryRunExpressionNode(node)
             }
         }
@@ -237,12 +237,15 @@ abstract class ExpressionNetwork(
                     return
                 }
 
+                val priority: Int = if (node.shouldUpdate) 1 else 0
+
                 val task = Task(
                     id = genId(),
                     expression = node.expression,
                     start = Clock.System.now(),
                     from = node.effectivePtr,
-                    to = node.expectedPtr
+                    to = node.expectedPtr,
+                    priority = priority
                 )
                 try {
                     logger.info("try to run expression node: $task")
@@ -259,6 +262,7 @@ abstract class ExpressionNetwork(
                     }
                 } catch (e: Exception) {
                     logger.error("try to run expression node err: ${task.id} $e")
+                    states[node.id] = NodeState.SYSTEM_FAILED
                     systemFailed(task, node, e.message.toString())
                 }
             }
@@ -316,7 +320,12 @@ abstract class ExpressionNetwork(
             task.failedReason = reason
             taskRepository.save(task)
             val node = getNode(task.nodeId)!!
-            states[node.id] = NodeState.FAILED
+            val mutex = getNodeLock(node)
+            mutex.withLock {
+                states[node.id] = NodeState.FAILED
+                tryRunTasksQueue.remove(node.id)
+                logger.debug("remove queue node : {}", node.idStr)
+            }
             pushFailed(node, reason)
             downstreamAllIncludeSelf(node) {
                 markInvalid(it)
@@ -328,6 +337,12 @@ abstract class ExpressionNetwork(
         logger.info("system failed run: $id")
         val task = taskRepository.get(id) ?: return
         val node = getNode(task.nodeId)!!
+        val mutex = getNodeLock(node)
+        mutex.withLock {
+            states[node.id] = NodeState.SYSTEM_FAILED
+            tryRunTasksQueue.remove(node.id)
+            logger.debug("remove queue node : {}", node.idStr)
+        }
         systemFailed(task, node, reason)
     }
 
@@ -347,7 +362,6 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun systemFailed(task: Task, node: Node, reason: String) {
-        states[node.id] = NodeState.SYSTEM_FAILED
         pushSystemFailed(node)
         task.finish = Clock.System.now()
         task.failedReason = reason
@@ -548,5 +562,22 @@ abstract class ExpressionNetwork(
         return taskRepository.getTaskByDataIdAndTo(id, to)
     }
 
+    suspend fun setEff0Exp0(ids: List<DataId>, eff: Pointer, exp: Pointer) {
+        val res = mutableListOf<Node>()
+        for (id in ids) {
+            val node = getNode(id) ?: continue
+            node.effectivePtr = eff
+            node.expectedPtr = exp
+            res.add(node)
+        }
+        nodeRepository.saveAll(res)
+    }
+
+    suspend fun forceUpdateRoot(ids: List<DataId>) {
+        for (id in ids) {
+            val node = getNode(id) ?: continue
+            updateRootSafeAsync(node)
+        }
+    }
 }
 
