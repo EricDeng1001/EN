@@ -19,7 +19,8 @@ data class TaskDO(
     val to: Int? = null,
     val start: LocalDateTime? = null,
     val finish: LocalDateTime? = null,
-    var failedReason: String? = null
+    var failedReason: String? = null,
+    var priority: Int? = null,
 ) {
     fun toModel(): Task {
         return Task(id = taskId,
@@ -29,7 +30,8 @@ data class TaskDO(
             start = start?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault()) ?: Instant.DISTANT_PAST,
             finish = finish?.toKotlinLocalDateTime()?.toInstant(TimeZone.currentSystemDefault())
                 ?: Instant.DISTANT_PAST,
-            failedReason = failedReason)
+            failedReason = failedReason,
+            priority = priority ?: 0)
     }
 }
 
@@ -42,7 +44,8 @@ fun Task.toMongo(oid: ObjectId?): TaskDO {
         to = to.value,
         start = start.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
         finish = finish.toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime(),
-        failedReason = failedReason
+        failedReason = failedReason,
+        priority = priority
     )
 }
 

@@ -15,10 +15,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import model.Executor
-import model.Expression
-import model.Pointer
-import model.TaskId
+import model.*
 import java.io.File
 
 @Serializable
@@ -28,7 +25,9 @@ data class Url(val run: String, val tryCancel: String)
 data class ExecutorConfig(val http: Boolean, val host: String, val port: Int, val url: Url)
 
 @Serializable
-data class RunRequestBody(val expression: Expression, val start: Int, val end: Int, val taskId: TaskId)
+data class RunRequestBody(
+    val expression: Expression, val start: Int, val end: Int, val taskId: TaskId, val priority: Int
+)
 
 @Serializable
 data class RunResponseBody(val started: Boolean)
@@ -60,7 +59,7 @@ object HttpExecutor : Executor {
         }
     }
 
-    override suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId): Boolean {
+    override suspend fun run(task: Task): Boolean {
         val url = URLBuilder(
             protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
             host = config.host,
@@ -73,7 +72,8 @@ object HttpExecutor : Executor {
             contentType(ContentType.Application.Json)
             setBody(
                 RunRequestBody(
-                    expression = expression, start = from.value, end = to.value, taskId = withId
+                    expression = task.expression, start = task.from.value, end = task.to.value, taskId = task.id,
+                    priority = task.priority
                 )
             )
         }

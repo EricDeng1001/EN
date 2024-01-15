@@ -13,7 +13,8 @@ data class Task(
     val to: Pointer,
     var start: Instant = Instant.DISTANT_PAST,
     var finish: Instant = Instant.DISTANT_PAST,
-    var failedReason: String? = null
+    var failedReason: String? = null,
+    val priority: Int = 0
 ) {
     val nodeId get() = expression.outputs[0]
 }

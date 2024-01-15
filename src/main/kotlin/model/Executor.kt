@@ -1,7 +1,8 @@
 package model
 
 interface Executor {
-    suspend fun run(expression: Expression, from: Pointer, to: Pointer, withId: TaskId): Boolean
+    suspend fun run(task: Task): Boolean
+
 
 //    suspend fun runBatch(batch: BatchExpression, from: Pointer, to: Pointer, withId: TaskId)
 
