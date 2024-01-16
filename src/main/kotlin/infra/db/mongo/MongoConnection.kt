@@ -45,11 +45,26 @@ object MongoConnection {
         }
         return client.getDatabase(database).getCollection<T>(collectionName)
     }
+    inline fun <reified T : Any> getNotebooksCollection(collectionName: String, database: String? = null): MongoCollection<T> {
+        if (database.isNullOrBlank()) {
+            return client.getDatabase(config.notebooksDatabase).getCollection<T>(collectionName)
+        }
+        return client.getDatabase(database).getCollection<T>(collectionName)
+    }
+
+    inline fun <reified T : Any> getSymbolCollection(collectionName: String, database: String? = null): MongoCollection<T> {
+        if (database.isNullOrBlank()) {
+            return client.getDatabase(config.symbolDatabase).getCollection<T>(collectionName)
+        }
+        return client.getDatabase(database).getCollection<T>(collectionName)
+    }
 
     @Serializable
     class ConfigFile(
         val url: String,
         val defaultDatabase: String,
+        val notebooksDatabase: String,
+        val symbolDatabase: String,
         val maxConnectionWaitTimeSeconds: Long,
         val maxConnectionPoolSize: Int
     )

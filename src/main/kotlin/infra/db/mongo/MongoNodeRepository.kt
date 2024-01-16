@@ -196,5 +196,20 @@ object MongoNodeRepository : NodeRepository {
         }
 
     }
+    override suspend fun findAllBesidesIds(ids: List<NodeId>): List<NodeId> {
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            not(
+                `in`(NodeDO::id.name, ids.map { it.str }.toList())
+            )
+        ).map { it.toModel().id }.toList()
+    }
+
+    override suspend fun delete(ids: List<NodeId>) {
+        MongoConnection.getCollection<NodeDO>(NODES_TABLE).deleteMany(
+            not(
+                `in`(NodeDO::id.name, ids.map { it.str }.toList())
+            )
+        )
+    }
 
 }

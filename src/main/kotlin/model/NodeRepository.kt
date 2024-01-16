@@ -12,5 +12,7 @@ interface NodeRepository {
     suspend fun queryAllNonRoot(): List<Node>
     suspend fun saveAll(nodes: Iterable<Node>)
     suspend fun get(id: NodeId): Node?
+    suspend fun delete(ids: List<NodeId>)
+    suspend fun findAllBesidesIds(ids: List<NodeId>): List<NodeId>
 
 }

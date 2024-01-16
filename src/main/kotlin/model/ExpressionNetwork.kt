@@ -8,6 +8,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.HashSet
 import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
@@ -404,6 +405,37 @@ abstract class ExpressionNetwork(
 
     private suspend fun upstreamOneLevel(node: Node): List<Node> {
         return upstreamOneLevel(node.expression)
+    }
+
+    suspend fun findAllUpstreamNode(id: DataId) : List<String> {
+        val node = getNode(id)
+        val set  = HashSet<Node>()
+        if (node != null){
+            set.add(node)
+        }else{
+            throw Error("origin node $id is null")
+        }
+        val all = upstreamAllNodes(set)
+        return all.map { it.idStr }.toList()
+    }
+
+    private suspend fun upstreamAllNodes(originSet: HashSet<Node>): Set<Node> {
+        if (originSet.isEmpty()){
+            return originSet
+        }
+        val nodeSet = HashSet<Node>()
+        originSet.forEach { node ->
+            val nodes = upstreamOneLevel(node)
+            nodes.forEach {
+                nodeSet.add(it)
+            }
+        }
+
+        val findNodes = upstreamAllNodes(nodeSet)
+        findNodes.forEach{
+            originSet.add(it)
+        }
+        return originSet
     }
 
     private suspend fun downstreamOneLevel(expression: Expression): List<Node> {

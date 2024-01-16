@@ -44,6 +44,8 @@ dependencies {
     // MongoDB Kotlin driver dependency
     implementation("org.mongodb:mongodb-driver-kotlin-coroutine:$mongodbVersion")
     testImplementation(kotlin("test"))
+    // csv dependency
+    implementation("com.github.doyaaaaaken:kotlin-csv-jvm:1.9.2")
 }
 
 tasks.test {
