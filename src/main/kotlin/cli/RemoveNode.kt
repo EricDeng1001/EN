@@ -27,7 +27,8 @@ fun main() {
         //3. 去重，存入res
         val resIds = HashSet<String>()
         getNodeIdFromCSV(nodeIdOutput).forEach {
-            resIds.add(it)
+            if (it.startsWith("__"))
+                resIds.add(it)
         }
         getNodeIdFromCSV(containerOutput).forEach {
             resIds.add(it)

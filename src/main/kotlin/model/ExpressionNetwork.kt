@@ -420,6 +420,7 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun upstreamAllNodes(originSet: HashSet<Node>): Set<Node> {
+//       非递归缓存去重会更快
         if (originSet.isEmpty()){
             return originSet
         }
