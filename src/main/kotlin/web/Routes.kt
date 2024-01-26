@@ -43,6 +43,9 @@ data class ExpressionState(val id: DataId, val state: String? = null)
 @Serializable
 data class SetEffExpRequest(val ids: List<DataId>, val eff: Int, val exp: Int)
 
+@Serializable
+data class MarkShouldUpdateRequest(val ids: List<DataId>, val shouldUpdate: Boolean)
+
 fun Route.httpRoutes() {
 
     get("/graph") {
@@ -144,8 +147,8 @@ fun Route.httpRoutes() {
     }
 
     post("/mark_should_update") {
-        val ids = call.receive<List<DataId>>()
-        ExpressionNetworkImpl.markShouldUpdate(ids)
+        val req = call.receive<MarkShouldUpdateRequest>()
+        ExpressionNetworkImpl.markShouldUpdate(req.ids, req.shouldUpdate)
         call.respond(HttpStatusCode.OK)
     }
 

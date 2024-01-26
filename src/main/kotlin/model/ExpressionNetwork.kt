@@ -51,11 +51,11 @@ abstract class ExpressionNetwork(
         nodeRepository.saveAll(changed)
     }
 
-    suspend fun markShouldUpdate(ids: List<DataId>) {
+    suspend fun markShouldUpdate(ids: List<DataId>, shouldUpdate: Boolean) {
         val changed = ArrayList<Node>(ids.size)
         for (id in ids) {
             val node = getNode(id) ?: continue
-            node.shouldUpdate = true
+            node.shouldUpdate = shouldUpdate
             changed.add(node)
         }
         nodeRepository.saveAll(changed)
