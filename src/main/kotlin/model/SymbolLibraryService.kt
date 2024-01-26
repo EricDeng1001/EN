@@ -10,6 +10,7 @@ interface SymbolLibraryService {
 
 @Serializable
 enum class Frequency(val frequencyValue: Int) {
+    T(1),
     M(20),
     D(4840);
 }

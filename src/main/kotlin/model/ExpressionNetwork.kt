@@ -272,7 +272,7 @@ abstract class ExpressionNetwork(
     }
 
     private fun getPreTimePointer(pointer: Pointer, offset: Int, freq: Int): Pointer {
-        val preTimePoint = (pointer.value / freq) * freq + offset
+        val preTimePoint = ((pointer.value - offset) / freq) * freq + offset
         return Pointer(preTimePoint)
     }
 
@@ -283,7 +283,7 @@ abstract class ExpressionNetwork(
             }
         } catch (e: Exception) {
             logger.error("Error normalizing pointer: ${e.message}")
-            pointer
+            throw e
         }
     }
 
@@ -544,9 +544,13 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun forceRerun(id: DataId) {
-        val node = getNode(id)?:return
+        val node = getNode(id) ?: return
         val newTask = Task(
-            id = genId(), expression = node.expression, start = Clock.System.now(), from = Pointer.ZERO, to = node.expectedPtr
+            id = genId(),
+            expression = node.expression,
+            start = Clock.System.now(),
+            from = Pointer.ZERO,
+            to = node.expectedPtr
         )
         executor.run(newTask)
     }
