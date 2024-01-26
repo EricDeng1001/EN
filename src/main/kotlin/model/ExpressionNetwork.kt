@@ -423,6 +423,38 @@ abstract class ExpressionNetwork(
         return upstreamOneLevel(node.expression)
     }
 
+    suspend fun allUpstreamNodeBesidesRoot(id: DataId): List<String> {
+        val node = getNode(id)
+        val set = HashSet<Node>()
+        if (node != null) {
+            set.add(node)
+        } else {
+            throw Error("origin node $id is null")
+        }
+        val all = upstreamAllNodes(set)
+        return all.filter { it.depth != 0 }.map { it.idStr }.toList()
+    }
+
+    private suspend fun upstreamAllNodes(originSet: HashSet<Node>): Set<Node> {
+//       非递归缓存去重会更快
+        if (originSet.isEmpty()) {
+            return originSet
+        }
+        val nodeSet = HashSet<Node>()
+        originSet.forEach { node ->
+            val nodes = upstreamOneLevel(node)
+            nodes.forEach {
+                nodeSet.add(it)
+            }
+        }
+
+        val findNodes = upstreamAllNodes(nodeSet)
+        findNodes.forEach {
+            originSet.add(it)
+        }
+        return originSet
+    }
+
     private suspend fun downstreamOneLevel(expression: Expression): List<Node> {
         val result = ArrayList<Node>()
         for (input in expression.outputs) {
