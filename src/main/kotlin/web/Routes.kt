@@ -157,6 +157,12 @@ fun Route.httpRoutes() {
         ExpressionNetworkImpl.rerun(id)
     }
 
+    get("/upstream_data") {
+        val id: DataId =
+            call.request.queryParameters["id"]?.let { DataId(it) } ?: throw IllegalArgumentException("id is required")
+        call.respond(ExpressionNetworkImpl.allUpstreamNodeBesidesRoot(id))
+    }
+
 }
 
 fun fib(n: Int): Int {
