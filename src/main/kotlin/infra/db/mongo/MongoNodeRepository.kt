@@ -46,7 +46,7 @@ data class NodeDO(
         fun toModel(): Input {
             return Input(
                 type = InputType.valueOf(type),
-                ids = ids.map { DataId(it) }
+                ids = ids.map { SymbolId(it) }
             )
         }
     }
@@ -69,7 +69,7 @@ data class NodeDO(
         fun toModel(): Expression {
             return Expression(
                 inputs.map { it.toModel() },
-                outputs.map { DataId(it) },
+                outputs.map { SymbolId(it) },
                 FuncId(funcId),
                 dataflow,
                 arguments.map { (k, v) -> k to v.toModel() }.toMap()
@@ -140,7 +140,7 @@ object MongoNodeRepository : NodeRepository {
         }
     }
 
-    private fun getCache(id: DataId): NodeCache? {
+    private fun getCache(id: SymbolId): NodeCache? {
         return cache.getIfPresent(id.str)
     }
 
@@ -203,7 +203,7 @@ object MongoNodeRepository : NodeRepository {
         return nodes
     }
 
-    override suspend fun queryByInput(id: DataId): List<Node> {
+    override suspend fun queryByInput(id: SymbolId): List<Node> {
         val nodes = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", id.str)
         ).map { it.toModel() }.toList()
@@ -211,7 +211,7 @@ object MongoNodeRepository : NodeRepository {
         return nodes
     }
 
-    override suspend fun queryByInput(id: List<DataId>): List<Node> {
+    override suspend fun queryByInput(id: List<SymbolId>): List<Node> {
         val nodes = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", id.map { it.str })
         ).map { it.toModel() }.toList()
@@ -219,7 +219,7 @@ object MongoNodeRepository : NodeRepository {
         return nodes
     }
 
-    override suspend fun queryByOutput(id: DataId): Node? {
+    override suspend fun queryByOutput(id: SymbolId): Node? {
         return getCache(id)?.node ?: run {
             val node = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
                 `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str)
@@ -231,9 +231,9 @@ object MongoNodeRepository : NodeRepository {
         }
     }
 
-    override suspend fun queryByOutput(ids: List<DataId>): List<Node> {
-        val cachedId = ArrayList<DataId>()
-        val queryIds = ArrayList<DataId>()
+    override suspend fun queryByOutput(ids: List<SymbolId>): List<Node> {
+        val cachedId = ArrayList<SymbolId>()
+        val queryIds = ArrayList<SymbolId>()
         val result = ArrayList<Node>()
         ids.forEach {
             val nodeCache = getCache(it)

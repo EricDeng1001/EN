@@ -13,15 +13,15 @@ class MongoTaskRepositoryTest {
     private val mongoTaskRepository = MongoTaskRepository
 
     private lateinit var task: Task
-    private lateinit var tasks: MutableMap<DataId, Task>
+    private lateinit var tasks: MutableMap<SymbolId, Task>
 
     @BeforeEach
     fun setUp() {
         task = Task(
             id = "123456789", expression = Expression(
-                inputs = listOf(Input(type = InputType.DataId, ids = listOf(DataId("open_test"))),
-                    Input(type = InputType.DataId, ids = listOf(DataId("close_test")))),
-                outputs = listOf(DataId("en_node_mongo_repo_test")),
+                inputs = listOf(Input(type = InputType.DataId, ids = listOf(SymbolId("open_test"))),
+                    Input(type = InputType.DataId, ids = listOf(SymbolId("close_test")))),
+                outputs = listOf(SymbolId("en_node_mongo_repo_test")),
                 funcId = FuncId("add_test"),
                 dataflow = "",
                 arguments = mapOf("const" to Argument("1", "int"))
@@ -30,11 +30,11 @@ class MongoTaskRepositoryTest {
             to = Pointer(4840)
         )
         for (i in 1..4){
-            val key = DataId(i.toString())
+            val key = SymbolId(i.toString())
             tasks[key] = Task(
                 id = key.str, expression = Expression(
-                    inputs = listOf(Input(type = InputType.DataId, ids = listOf(DataId("open_test"))),
-                        Input(type = InputType.DataId, ids = listOf(DataId("close_test")))),
+                    inputs = listOf(Input(type = InputType.DataId, ids = listOf(SymbolId("open_test"))),
+                        Input(type = InputType.DataId, ids = listOf(SymbolId("close_test")))),
                     outputs = listOf(key),
                     funcId = FuncId("add_test"),
                     dataflow = "",

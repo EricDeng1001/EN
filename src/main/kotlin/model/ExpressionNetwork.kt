@@ -28,7 +28,7 @@ abstract class ExpressionNetwork(
     private val dispatcher = newFixedThreadPoolContext(Runtime.getRuntime().availableProcessors(), "en-background")
     private val backgroundTasks = CoroutineScope(dispatcher)
 
-    private suspend fun getNode(id: DataId): Node? {
+    private suspend fun getNode(id: SymbolId): Node? {
         return nodeRepository.queryByOutput(id)
     }
 
@@ -36,11 +36,11 @@ abstract class ExpressionNetwork(
         return nodeRepository.get(id)
     }
 
-    private suspend fun findNodeByInput(id: DataId): List<Node> {
+    private suspend fun findNodeByInput(id: SymbolId): List<Node> {
         return nodeRepository.queryByInput(id)
     }
 
-    suspend fun markMustCalc(ids: List<DataId>) {
+    suspend fun markMustCalc(ids: List<SymbolId>) {
         val changed = ArrayList<Node>(ids.size)
         for (id in ids) {
             val node = getNode(id) ?: continue
@@ -50,7 +50,7 @@ abstract class ExpressionNetwork(
         nodeRepository.saveAll(changed)
     }
 
-    suspend fun markShouldUpdate(ids: List<DataId>) {
+    suspend fun markShouldUpdate(ids: List<SymbolId>) {
         val changed = ArrayList<Node>(ids.size)
         for (id in ids) {
             val node = getNode(id) ?: continue
@@ -60,7 +60,7 @@ abstract class ExpressionNetwork(
         nodeRepository.saveAll(changed)
     }
 
-    suspend fun buildGraph(ids: List<DataId>): GraphView {
+    suspend fun buildGraph(ids: List<SymbolId>): GraphView {
         val nodes: MutableList<Node> = ArrayList()
         for (id in ids) {
             val node = getNode(id) ?: continue
@@ -69,9 +69,9 @@ abstract class ExpressionNetwork(
         return Graph(nodes, emptyList()).view()
     }
 
-    suspend fun buildDebugGraph(ids: List<DataId>): GraphDebugView {
+    suspend fun buildDebugGraph(ids: List<SymbolId>): GraphDebugView {
         val nodes: MutableList<Node> = ArrayList()
-        val inputs = HashSet<DataId>()
+        val inputs = HashSet<SymbolId>()
         for (id in ids) {
             val node = getNode(id) ?: continue
             nodes.add(node)
@@ -89,8 +89,8 @@ abstract class ExpressionNetwork(
         return Graph(nodes, inputsNode).debugView()
     }
 
-    suspend fun queryExpressionsState(ids: List<DataId>): List<Pair<DataId, String?>> {
-        val res: MutableList<Pair<DataId, String?>> = mutableListOf()
+    suspend fun queryExpressionsState(ids: List<SymbolId>): List<Pair<SymbolId, String?>> {
+        val res: MutableList<Pair<SymbolId, String?>> = mutableListOf()
         for (id in ids) {
             val state = states[NodeId(id.str)]
             if (state == null) {
@@ -121,7 +121,7 @@ abstract class ExpressionNetwork(
         return res
     }
 
-    suspend fun updateRoot(id: DataId, effectivePtr: Pointer) {
+    suspend fun updateRoot(id: SymbolId, effectivePtr: Pointer) {
         logger.debug("update root: {} to {}", id, effectivePtr)
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
@@ -135,7 +135,7 @@ abstract class ExpressionNetwork(
     }
 
     private suspend fun updateRootSafeAsync(node: Node) = updateDownstream(node)
-    suspend fun reUpdateRoot(id: DataId, resetPtr: Pointer) {
+    suspend fun reUpdateRoot(id: SymbolId, resetPtr: Pointer) {
         val node = getNode(id) ?: return
         if (node.expression.isRoot()) {
             val save = node.effectivePtr
@@ -167,13 +167,13 @@ abstract class ExpressionNetwork(
         return visited.values.toHashSet()
     }
 
-    suspend fun markForceRunPerf(id: DataId) {
+    suspend fun markForceRunPerf(id: SymbolId) {
         val node = getNode(id) ?: return
         node.isPerfCalculated = false
         nodeRepository.save(node)
     }
 
-    suspend fun runExpression(id: DataId) {
+    suspend fun runExpression(id: SymbolId) {
         val node = getNode(id) ?: return
         if (!node.shouldUpdate) {
             backgroundTasks.launch {
@@ -182,7 +182,7 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun forceRun(id: DataId) {
+    suspend fun forceRun(id: SymbolId) {
         val node = getNode(id) ?: return
         tryRunExpressionNode(node)
     }
@@ -402,7 +402,7 @@ abstract class ExpressionNetwork(
         return nodeRepository.downstream1Lvl(node)
     }
 
-    suspend fun add(expression: Expression): List<DataId> {
+    suspend fun add(expression: Expression): List<SymbolId> {
         return runBlocking {
             if (expression.isRoot()) {
                 return@runBlocking saveRoot(expression)
@@ -413,7 +413,7 @@ abstract class ExpressionNetwork(
     }
 
 
-    private suspend fun saveExpression(expression: Expression): List<DataId> {
+    private suspend fun saveExpression(expression: Expression): List<SymbolId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
         if (queryByExpression != null) return queryByExpression.expression.outputs
 
@@ -425,9 +425,9 @@ abstract class ExpressionNetwork(
             }
         }
 
-        val result = ArrayList<DataId>()
+        val result = ArrayList<SymbolId>()
         for (output in expression.outputs) {
-            result.add(DataId(genId()))
+            result.add(SymbolId(genId()))
         }
         expression.outputs = result
         val node = Node(
@@ -442,7 +442,7 @@ abstract class ExpressionNetwork(
         return result
     }
 
-    private suspend fun saveRoot(expression: Expression): List<DataId> {
+    private suspend fun saveRoot(expression: Expression): List<SymbolId> {
         if (getNode(expression.outputs[0]) == null) {
             val node = Node.makeRoot(expression)
             nodeRepository.save(node)
@@ -511,7 +511,7 @@ abstract class ExpressionNetwork(
         executor.run(newTask)
     }
 
-    suspend fun forceRerun(id: DataId) {
+    suspend fun forceRerun(id: SymbolId) {
         val node = getNode(id) ?: return
         val newTask = Task(
             id = genId(),
@@ -548,21 +548,21 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun getTasksByDataId(ids: List<DataId>): List<Task> {
+    suspend fun getTasksByDataId(ids: List<SymbolId>): List<Task> {
         val tasks = ids.mapNotNull { getTaskByDataId(it) }.toList()
         logger.info("find ${tasks.size} tasks by taskIds: $ids")
         return tasks
     }
 
-    suspend fun getTaskByDataId(id: DataId): Task? {
+    suspend fun getTaskByDataId(id: SymbolId): Task? {
         return taskRepository.getTaskByDataId(id)
     }
 
-    suspend fun getTaskByDataIdAndTo(id: DataId, to: Pointer): Task? {
+    suspend fun getTaskByDataIdAndTo(id: SymbolId, to: Pointer): Task? {
         return taskRepository.getTaskByDataIdAndTo(id, to)
     }
 
-    suspend fun setEff0Exp0(ids: List<DataId>, eff: Pointer, exp: Pointer) {
+    suspend fun setEff0Exp0(ids: List<SymbolId>, eff: Pointer, exp: Pointer) {
         val res = mutableListOf<Node>()
         for (id in ids) {
             val node = getNode(id) ?: continue
@@ -573,7 +573,7 @@ abstract class ExpressionNetwork(
         nodeRepository.saveAll(res)
     }
 
-    suspend fun forceUpdateRoot(ids: List<DataId>) {
+    suspend fun forceUpdateRoot(ids: List<SymbolId>) {
         for (id in ids) {
             val node = getNode(id) ?: continue
             updateRootSafeAsync(node)

@@ -2,7 +2,7 @@ package infra.messagequeue
 
 import io.ktor.server.websocket.*
 import kotlinx.serialization.Serializable
-import model.DataId
+import model.SymbolId
 import model.MessageQueue
 import model.NodeState
 import org.slf4j.Logger
@@ -12,14 +12,14 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 
 @Serializable
-data class SendMessage(val id: DataId, val status: String, val reason: String = "");
+data class SendMessage(val id: SymbolId, val status: String, val reason: String = "");
 
 object WebSocketNotification : MessageQueue {
 
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
 
-    val connections = ConcurrentHashMap<WebSocketServerSession, CopyOnWriteArraySet<DataId>>()
-    override suspend fun pushRunning(id: DataId) {
+    val connections = ConcurrentHashMap<WebSocketServerSession, CopyOnWriteArraySet<SymbolId>>()
+    override suspend fun pushRunning(id: SymbolId) {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
@@ -31,7 +31,7 @@ object WebSocketNotification : MessageQueue {
         }
     }
 
-    override suspend fun pushRunFailed(id: DataId, reason: String) {
+    override suspend fun pushRunFailed(id: SymbolId, reason: String) {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
@@ -43,7 +43,7 @@ object WebSocketNotification : MessageQueue {
         }
     }
 
-    override suspend fun pushRunFinish(id: DataId) {
+    override suspend fun pushRunFinish(id: SymbolId) {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
@@ -55,7 +55,7 @@ object WebSocketNotification : MessageQueue {
         }
     }
 
-    override suspend fun pushSystemFailed(id: DataId) {
+    override suspend fun pushSystemFailed(id: SymbolId) {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {

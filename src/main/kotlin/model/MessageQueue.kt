@@ -1,12 +1,12 @@
 package model
 
 interface MessageQueue {
-    suspend fun pushRunning(id: DataId)
+    suspend fun pushRunning(id: SymbolId)
 
-    suspend fun pushRunFailed(id: DataId, reason: String)
+    suspend fun pushRunFailed(id: SymbolId, reason: String)
 
-    suspend fun pushRunFinish(id: DataId)
+    suspend fun pushRunFinish(id: SymbolId)
 
-    suspend fun pushSystemFailed(id: DataId)
+    suspend fun pushSystemFailed(id: SymbolId)
 
 }

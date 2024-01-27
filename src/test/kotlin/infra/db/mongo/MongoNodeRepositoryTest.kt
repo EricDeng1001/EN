@@ -23,9 +23,9 @@ class MongoNodeRepositoryTest {
             resetPtr = false,
             expression = Expression(
                 inputs = listOf(
-                    Input(type = InputType.DataId, ids = listOf(DataId("open_test"))),
-                    Input(type = InputType.DataId, ids = listOf(DataId("close_test")))),
-                outputs = listOf(DataId("en_node_mongo_repo_test")),
+                    Input(type = InputType.DataId, ids = listOf(SymbolId("open_test"))),
+                    Input(type = InputType.DataId, ids = listOf(SymbolId("close_test")))),
+                outputs = listOf(SymbolId("en_node_mongo_repo_test")),
                 funcId = FuncId("add_test"),
                 dataflow = "",
                 arguments = mapOf("const" to Argument("1", "int"))
@@ -57,7 +57,7 @@ class MongoNodeRepositoryTest {
     @Test
     fun queryByInput() {
         runBlocking {
-            val ret = mongoNodeRepository.queryByInput(id = DataId("open_test"))
+            val ret = mongoNodeRepository.queryByInput(id = SymbolId("open_test"))
             assertEquals(1, ret.size)
             assertEquals(node, ret.first())
         }
@@ -66,7 +66,7 @@ class MongoNodeRepositoryTest {
     @Test
     fun queryByOutput() {
         runBlocking {
-            val ret = mongoNodeRepository.queryByOutput(id = DataId("en_node_mongo_repo_test"))
+            val ret = mongoNodeRepository.queryByOutput(id = SymbolId("en_node_mongo_repo_test"))
             assertEquals(node, ret)
         }
     }

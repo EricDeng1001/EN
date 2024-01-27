@@ -8,8 +8,8 @@ interface NodeRepository {
     suspend fun downstream1Lvl(node: Node): Iterable<Node>
 
     suspend fun upstream1Lvl(node: Node): Iterable<Node>
-    suspend fun queryByInput(id: DataId): List<Node>
-    suspend fun queryByOutput(id: DataId): Node?
+    suspend fun queryByInput(id: SymbolId): List<Node>
+    suspend fun queryByOutput(id: SymbolId): Node?
     suspend fun queryByFunc(funcId: FuncId): List<Node>
 
     suspend fun queryAllRoot(): List<Node>
@@ -17,6 +17,6 @@ interface NodeRepository {
     suspend fun saveAll(nodes: Iterable<Node>)
     suspend fun get(id: NodeId): Node?
 
-    suspend fun queryByInput(id: List<DataId>): List<Node>
-    suspend fun queryByOutput(id: List<DataId>): List<Node>
+    suspend fun queryByInput(id: List<SymbolId>): List<Node>
+    suspend fun queryByOutput(id: List<SymbolId>): List<Node>
 }

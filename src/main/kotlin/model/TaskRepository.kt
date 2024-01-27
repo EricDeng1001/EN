@@ -5,9 +5,9 @@ interface TaskRepository {
 
     suspend fun get(id: TaskId): Task?
 
-    suspend fun getTaskByDataId(id: DataId): Task?
+    suspend fun getTaskByDataId(id: SymbolId): Task?
 
     suspend fun delete(id: TaskId)
 
-    suspend fun getTaskByDataIdAndTo(id: DataId, to: Pointer): Task?
+    suspend fun getTaskByDataIdAndTo(id: SymbolId, to: Pointer): Task?
 }

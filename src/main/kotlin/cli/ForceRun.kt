@@ -2,10 +2,10 @@ package cli
 
 import infra.ExpressionNetworkImpl
 import kotlinx.coroutines.runBlocking
-import model.DataId
+import model.SymbolId
 
 fun main() {
     runBlocking {
-        ExpressionNetworkImpl.forceRun(DataId(""))
+        ExpressionNetworkImpl.forceRun(SymbolId(""))
     }
 }
