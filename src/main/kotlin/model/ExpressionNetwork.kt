@@ -418,7 +418,7 @@ abstract class ExpressionNetwork(
     private suspend fun downstreamOneLevel(node: Node): Iterable<Node> {
         return nodeRepository.downstream1Lvl(node)
     }
-    suspend fun allUpstreamNodeBesidesRoot(id: DataId): List<String> {
+    suspend fun allUpstreamNodeBesidesRoot(id: SymbolId): List<String> {
         val node = getNode(id)
         val set = HashSet<Node>()
         if (node != null) {

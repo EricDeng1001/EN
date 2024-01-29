@@ -155,8 +155,8 @@ fun Route.httpRoutes() {
     }
 
     get("/upstream_data") {
-        val id: DataId =
-            call.request.queryParameters["id"]?.let { DataId(it) } ?: throw IllegalArgumentException("id is required")
+        val id: SymbolId =
+            call.request.queryParameters["id"]?.let { SymbolId(it) } ?: throw IllegalArgumentException("id is required")
         call.respond(ExpressionNetworkImpl.allUpstreamNodeBesidesRoot(id))
     }
 
