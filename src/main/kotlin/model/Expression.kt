@@ -3,7 +3,6 @@ package model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-typealias TimeLength = Int
 typealias ArgName = String
 
 enum class InputType {
@@ -15,19 +14,19 @@ enum class InputType {
 }
 
 @Serializable
-data class Input(val type: InputType, val ids: List<DataId>)
+data class Input(val type: InputType, val ids: List<SymbolId>)
 
 @Serializable
 data class Expression(
     val inputs: List<Input>,
-    var outputs: List<DataId>,
+    var outputs: List<SymbolId>,
     val funcId: FuncId,
     val arguments: Map<ArgName, Argument>,
 ) {
     fun isRoot(): Boolean = this.inputs.isEmpty()
 
     companion object {
-        fun makeRoot(id: DataId): Expression = Expression(
+        fun makeRoot(id: SymbolId): Expression = Expression(
             inputs = emptyList(),
             outputs = listOf(id),
             funcId = FuncId.Noop,

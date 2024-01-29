@@ -1,5 +1,7 @@
 package infra.db.mongo
 
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.ReplaceOneModel
 import com.mongodb.client.model.ReplaceOptions
@@ -10,6 +12,7 @@ import model.*
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
 import java.util.*
+import kotlin.collections.ArrayList
 
 data class NodeDO(
     @BsonId val mongoId: ObjectId? = null,
@@ -43,7 +46,7 @@ data class NodeDO(
         fun toModel(): Input {
             return Input(
                 type = InputType.valueOf(type),
-                ids = ids.map { DataId(it) }
+                ids = ids.map { SymbolId(it) }
             )
         }
     }
@@ -65,7 +68,7 @@ data class NodeDO(
         fun toModel(): Expression {
             return Expression(
                 inputs.map { it.toModel() },
-                outputs.map { DataId(it) },
+                outputs.map { SymbolId(it) },
                 FuncId(funcId),
                 arguments.map { (k, v) -> k to v.toModel() }.toMap()
             )
@@ -110,15 +113,44 @@ fun Argument.toMongo(): NodeDO.ExpressionDO.ArgumentDO {
 }
 
 
+data class NodeCache(
+    var node: Node,
+    var upstream: List<Node>? = null,
+    var downstream: List<Node>? = null
+)
+
 object MongoNodeRepository : NodeRepository {
 
     private const val NODES_TABLE = "nodes"
+
+    private val cache: Cache<String, NodeCache> = Caffeine.newBuilder().maximumSize(1_000_000).build()
+
+    private fun saveToCache(node: Node): NodeCache {
+        val nodeCache = cache.get(node.id.str) { NodeCache(node) }
+        nodeCache.node = node
+        return nodeCache
+    }
+
+    private fun saveToCache(nodes: Iterable<Node>) {
+        nodes.forEach {
+            cache.put(it.id.str, NodeCache(it))
+        }
+    }
+
+    private fun getCache(id: SymbolId): NodeCache? {
+        return cache.getIfPresent(id.str)
+    }
+
+    private fun getCache(id: NodeId): NodeCache? {
+        return cache.getIfPresent(id.str)
+    }
 
     override suspend fun save(node: Node): Node {
         val save = node.toMongo()
         MongoConnection.getCollection<NodeDO>(NODES_TABLE).replaceOne(
             eq("id", node.idStr), save, ReplaceOptions().upsert(true)
         )
+        saveToCache(node)
         return node
     }
 
@@ -127,47 +159,134 @@ object MongoNodeRepository : NodeRepository {
         if (operations.isNotEmpty()) {
             MongoConnection.getCollection<NodeDO>(NODES_TABLE).bulkWrite(operations)
         }
+        saveToCache(nodes)
     }
+
 
     override suspend fun queryByExpression(expression: Expression): Node? {
         val nodeDO = queryNodeDOByExpression(expression) ?: return null
-        return nodeDO.toModel()
+        val node = nodeDO.toModel()
+        saveToCache(node)
+        return node
     }
 
-    override suspend fun queryByInput(id: DataId): List<Node> {
-        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+    override suspend fun downstream1Lvl(node: Node): List<Node> {
+//        var nodeCache = getCache(node.id)
+//        if (nodeCache != null) {
+//            if (nodeCache.downstream != null) {
+//                return nodeCache.downstream!!
+//            }
+//        } else {
+//            nodeCache = saveToCache(node)
+//        }
+        val nodes = queryByInput(node.expression.outputs)
+//        nodeCache.downstream = nodes
+        return nodes
+    }
+
+    override suspend fun upstream1Lvl(node: Node): Iterable<Node> {
+//        var nodeCache = getCache(node.id)
+//        if (nodeCache != null) {
+//            if (nodeCache.upstream != null) {
+//                return nodeCache.upstream!!
+//            }
+//        } else {
+//            nodeCache = saveToCache(node)
+//        }
+
+        val nodes = queryByOutput(node.expression.inputs.flatMap { it.ids })
+
+//        nodeCache.upstream = nodes
+        return nodes
+    }
+
+    override suspend fun queryByInput(id: SymbolId): List<Node> {
+        val nodes = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", id.str)
         ).map { it.toModel() }.toList()
+        saveToCache(nodes)
+        return nodes
     }
 
-    override suspend fun queryByOutput(id: DataId): Node? {
-        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
-            `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str)
-        ).map { it.toModel() }.firstOrNull()
+    override suspend fun queryByInput(id: List<SymbolId>): List<Node> {
+        val nodes = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", id.map { it.str })
+        ).map { it.toModel() }.toList()
+        saveToCache(nodes)
+        return nodes
+    }
+
+    override suspend fun queryByOutput(id: SymbolId): Node? {
+        return getCache(id)?.node ?: run {
+            val node = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+                `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str)
+            ).map { it.toModel() }.firstOrNull()
+            if (node != null) {
+                saveToCache(node)
+            }
+            return node
+        }
+    }
+
+    override suspend fun queryByOutput(ids: List<SymbolId>): List<Node> {
+        val cachedId = ArrayList<SymbolId>()
+        val queryIds = ArrayList<SymbolId>()
+        val result = ArrayList<Node>()
+        ids.forEach {
+            val nodeCache = getCache(it)
+            if (nodeCache == null) {
+                queryIds.add(it)
+            } else {
+                if (!result.contains(nodeCache.node)) {
+                    result.add(nodeCache.node)
+                }
+            }
+        }
+
+        val nodes = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            `in`("${NodeDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", queryIds.map { it.str })
+        ).map { it.toModel() }.toList()
+        saveToCache(nodes)
+        result.addAll(nodes)
+        return result
     }
 
     override suspend fun queryByFunc(funcId: FuncId): List<Node> {
-        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+        val nodes = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", funcId.value)
         ).map { it.toModel() }.toList()
+        saveToCache(nodes)
+        return nodes
     }
 
     override suspend fun queryAllRoot(): List<Node> {
-        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+        val nodes = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", 0)
         ).map { it.toModel() }.toList()
+        saveToCache(nodes)
+
+        return nodes
     }
 
     override suspend fun queryAllNonRoot(): List<Node> {
-        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+        val nodes = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             not(size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", 0))
         ).map { it.toModel() }.toList()
+        saveToCache(nodes)
+
+        return nodes
     }
 
     override suspend fun get(id: NodeId): Node? {
-        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
-            eq("id", id.str)
-        ).map { it.toModel() }.firstOrNull()
+        return getCache(id)?.node ?: run {
+            val node = MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+                eq("id", id.str)
+            ).map { it.toModel() }.firstOrNull()
+            if (node != null) {
+                saveToCache(node)
+            }
+            return node
+        }
     }
 
     private suspend fun queryNodeDOByExpression(expression: Expression): NodeDO? {

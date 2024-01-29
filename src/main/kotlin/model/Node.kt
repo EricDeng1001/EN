@@ -34,7 +34,7 @@ data class Node(
     val id get() = Id(expression.outputs[0].str)
 
     val idStr get() = id.str
-    fun ids(): Iterable<DataId> {
+    fun ids(): Iterable<SymbolId> {
         return expression.outputs
     }
 

@@ -4,7 +4,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.collections.ArrayList
 import kotlin.concurrent.timerTask
 import kotlin.test.Test
@@ -16,8 +15,8 @@ class MockNodeRepo : NodeRepository {
     val idMap: MutableMap<NodeId, Node> = ConcurrentHashMap()
     val funcMap: MutableMap<FuncId, ArrayList<Node>> = ConcurrentHashMap()
     val expressionMap: MutableMap<Expression, Node> = ConcurrentHashMap()
-    val inputMap: MutableMap<DataId, ArrayList<Node>> = ConcurrentHashMap()
-    val outputMap: MutableMap<DataId, Node> = ConcurrentHashMap()
+    val inputMap: MutableMap<SymbolId, ArrayList<Node>> = ConcurrentHashMap()
+    val outputMap: MutableMap<SymbolId, Node> = ConcurrentHashMap()
 
     override suspend fun save(node: Node): Node {
         val nodeCopy = node.copy()
@@ -43,9 +42,9 @@ class MockNodeRepo : NodeRepository {
         return expressionMap[queryExpression]
     }
 
-    override suspend fun queryByInput(id: DataId): List<Node> = inputMap[id] ?: emptyList()
+    override suspend fun queryByInput(id: SymbolId): List<Node> = inputMap[id] ?: emptyList()
 
-    override suspend fun queryByOutput(id: DataId): Node? = outputMap[id]
+    override suspend fun queryByOutput(id: SymbolId): Node? = outputMap[id]
 
     override suspend fun queryByFunc(funcId: FuncId): List<Node> = funcMap[funcId] ?: emptyList()
     override suspend fun queryAllRoot(): List<Node> {
@@ -75,7 +74,7 @@ class MockTaskRepo : TaskRepository {
     }
 
     override suspend fun get(id: TaskId): Task? = idMap[id]
-    override suspend fun getTaskByDataId(id: DataId): Task? {
+    override suspend fun getTaskByDataId(id: SymbolId): Task? {
         return idMap.values.find { it.expression.outputs.contains(id) }
     }
 
@@ -84,7 +83,7 @@ class MockTaskRepo : TaskRepository {
         idMap.remove(id)
     }
 
-    override suspend fun getTaskByDataIdAndTo(id: DataId, to: Pointer): Task? {
+    override suspend fun getTaskByDataIdAndTo(id: SymbolId, to: Pointer): Task? {
         return idMap.values.filter { t -> t.expression.outputs.contains(id) && t.to == to }.firstOrNull()
     }
 
@@ -114,26 +113,26 @@ class MockExecutor : Executor {
 }
 
 class MockMQ : MessageQueue {
-    override suspend fun pushRunning(id: DataId) {
+    override suspend fun pushRunning(id: SymbolId) {
         return
     }
 
-    override suspend fun pushRunFailed(id: DataId, reason: String) {
+    override suspend fun pushRunFailed(id: SymbolId, reason: String) {
         return
     }
 
-    override suspend fun pushRunFinish(id: DataId) {
+    override suspend fun pushRunFinish(id: SymbolId) {
         return
     }
 
-    override suspend fun pushSystemFailed(id: DataId) {
+    override suspend fun pushSystemFailed(id: SymbolId) {
         TODO("Not yet implemented")
     }
 
 }
 
 class MockPerf : PerformanceService {
-    override suspend fun calculate(id: DataId) {
+    override suspend fun calculate(id: SymbolId) {
     }
 
 }
@@ -164,16 +163,16 @@ class ExpressionNetworkTest(
 ) : ExpressionNetwork(nodeRepository, taskRepository, executor, MockMQ(), MockPerf(), MockSymbol()) {
 }
 
-fun List<DataId>.toInputs(): List<Input> {
+fun List<SymbolId>.toInputs(): List<Input> {
     return this.map { Input(type = InputType.DataId, ids = listOf(it)) }
 }
 
 object TestCases {
-    val d1 = DataId("d1")
-    val d2 = DataId("d2")
-    val d3 = DataId("d3")
-    val p1 = DataId("p1")
-    val p2 = DataId("p2")
+    val d1 = SymbolId("d1")
+    val d2 = SymbolId("d2")
+    val d3 = SymbolId("d3")
+    val p1 = SymbolId("p1")
+    val p2 = SymbolId("p2")
     val f1 = FuncId("f1")
     val f2 = FuncId("f2")
 
@@ -337,7 +336,7 @@ object TestCases {
                 assertEquals(Pointer(10), en.nodeRepository.queryByOutput(id)!!.effectivePtr)
             }
             en.add(Expression.makeRoot(d3))
-            val exp3Inputs = ArrayList<DataId>(exp1)
+            val exp3Inputs = ArrayList<SymbolId>(exp1)
             exp3Inputs.add(d3)
             val exp3 = en.add(
                 Expression(

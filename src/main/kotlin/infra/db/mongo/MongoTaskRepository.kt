@@ -63,7 +63,7 @@ object MongoTaskRepository : TaskRepository {
             .map { it.toModel() }.firstOrNull()
     }
 
-    override suspend fun getTaskByDataId(id: DataId): Task? {
+    override suspend fun getTaskByDataId(id: SymbolId): Task? {
         return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(
             Filters.eq("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str)
         ).sort(Sorts.descending(TaskDO::start.name)).map { it.toModel() }.firstOrNull()
@@ -73,7 +73,7 @@ object MongoTaskRepository : TaskRepository {
         MongoConnection.getCollection<TaskDO>(TASKS_TABLE).deleteOne(Filters.eq(TaskDO::taskId.name, id))
     }
 
-    override suspend fun getTaskByDataIdAndTo(id: DataId, to: Pointer): Task? {
+    override suspend fun getTaskByDataIdAndTo(id: SymbolId, to: Pointer): Task? {
         return MongoConnection.getCollection<TaskDO>(TASKS_TABLE).find<TaskDO>(
             Filters.and(
                 Filters.eq("${TaskDO::expression.name}.${NodeDO.ExpressionDO::outputs.name}", id.str),

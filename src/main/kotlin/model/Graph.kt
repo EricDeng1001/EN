@@ -49,11 +49,11 @@ data class GraphDebugView(val nodes: List<GraphDebugNode>, val edges: List<Graph
 @Serializable
 data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
 
-    private val nodesMap: MutableMap<DataId, DataId> = HashMap()
+    private val nodesMap: MutableMap<SymbolId, SymbolId> = HashMap()
 
-    private val edges: MutableList<Pair<DataId, DataId>> = ArrayList()
+    private val edges: MutableList<Pair<SymbolId, SymbolId>> = ArrayList()
 
-    private val opsMap: MutableMap<DataId, String> = HashMap()
+    private val opsMap: MutableMap<SymbolId, String> = HashMap()
 
     init {
         for (node in nodes) {
@@ -72,7 +72,7 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
                 nodesMap.computeIfAbsent(output) { output }
             }
 
-            val opId = DataId("${ex.funcId.value}_${ex.outputs[0]}")
+            val opId = SymbolId("${ex.funcId.value}_${ex.outputs[0]}")
             opsMap[opId] = ex.funcId.value
         }
 
@@ -83,7 +83,7 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
                 continue
             }
 
-            val opId = DataId("${ex.funcId.value}_${ex.outputs[0]}")
+            val opId = SymbolId("${ex.funcId.value}_${ex.outputs[0]}")
             for (input in ex.inputs) {
                 for (i in input.ids) {
                     edges.add(Pair(i, opId))

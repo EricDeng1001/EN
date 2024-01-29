@@ -47,7 +47,7 @@ object HttpPerformanceService : PerformanceService {
         }
     }
 
-    override suspend fun calculate(id: DataId) {
+    override suspend fun calculate(id: SymbolId) {
         val url = URLBuilder(
             protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
             host = config.host,

@@ -41,6 +41,8 @@ dependencies {
     implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("com.charleskorn.kaml:kaml:0.54.0")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.3.2")
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.7")
+
     // MongoDB Kotlin driver dependency
     implementation("org.mongodb:mongodb-driver-kotlin-coroutine:$mongodbVersion")
     testImplementation(kotlin("test"))

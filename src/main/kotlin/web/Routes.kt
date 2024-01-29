@@ -13,9 +13,6 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
@@ -35,40 +32,40 @@ data class RunSuccessResponse(val taskId: String)
 data class RunErrorResponse(val taskId: String, val message: String, val type: String)
 
 @Serializable
-data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<DataId>? = emptySet())
+data class WebSocketRequest(val sub: Set<SymbolId>? = emptySet(), val unsub: Set<SymbolId>? = emptySet())
 
 @Serializable
-data class ExpressionState(val id: DataId, val state: String? = null)
+data class ExpressionState(val id: SymbolId, val state: String? = null)
 
 @Serializable
-data class SetEffExpRequest(val ids: List<DataId>, val eff: Int, val exp: Int)
+data class SetEffExpRequest(val ids: List<SymbolId>, val eff: Int, val exp: Int)
 
 @Serializable
-data class MarkShouldUpdateRequest(val ids: List<DataId>, val shouldUpdate: Boolean)
+data class MarkShouldUpdateRequest(val ids: List<SymbolId>, val shouldUpdate: Boolean)
 
 fun Route.httpRoutes() {
 
     get("/graph") {
-        val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
+        val ids: List<SymbolId> = call.request.queryParameters.getAll("id")?.map { SymbolId(it) }?.toList()
             ?: throw IllegalArgumentException("id is required")
         call.respond(ExpressionNetworkImpl.buildGraph(ids))
     }
 
     get("/graph/debug") {
-        val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
+        val ids: List<SymbolId> = call.request.queryParameters.getAll("id")?.map { SymbolId(it) }?.toList()
             ?: throw IllegalArgumentException("id is required")
         call.respond(ExpressionNetworkImpl.buildDebugGraph(ids))
     }
 
     get("/expression/state") {
-        val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
+        val ids: List<SymbolId> = call.request.queryParameters.getAll("id")?.map { SymbolId(it) }?.toList()
             ?: throw IllegalArgumentException("id is required")
         call.respond(ExpressionNetworkImpl.queryExpressionsState(ids).map { ExpressionState(it.first, it.second) })
     }
 
     get("/expression/latest/task") {
-        val id: DataId =
-            call.request.queryParameters["id"]?.let { DataId(it) } ?: throw IllegalArgumentException("id is required")
+        val id: SymbolId =
+            call.request.queryParameters["id"]?.let { SymbolId(it) } ?: throw IllegalArgumentException("id is required")
         val to = call.request.queryParameters["to"]?.toIntOrNull()
 
         val ret = if (to != null) {
@@ -86,13 +83,13 @@ fun Route.httpRoutes() {
 
     post("/run/root") {
         val req = call.receive<RunRootRequest>()
-        ExpressionNetworkImpl.updateRoot(DataId(req.dataId), Pointer(req.effectivePtr))
+        ExpressionNetworkImpl.updateRoot(SymbolId(req.dataId), Pointer(req.effectivePtr))
         call.respond(HttpStatusCode.OK)
     }
 
     post("run/expression") {
         val force = call.request.queryParameters["force"] ?: ""
-        val req = call.receive<DataId>()
+        val req = call.receive<SymbolId>()
         if (force != "") {
             ExpressionNetworkImpl.markForceRunPerf(req)
         }
@@ -107,7 +104,7 @@ fun Route.httpRoutes() {
     }
 
     post("/add/root") {
-        val id = call.receive<DataId>()
+        val id = call.receive<SymbolId>()
         ExpressionNetworkImpl.add(Expression.makeRoot(id))
         call.respond(HttpStatusCode.OK)
     }
@@ -135,7 +132,7 @@ fun Route.httpRoutes() {
     }
 
     post("/mark_must") {
-        val ids = call.receive<List<DataId>>()
+        val ids = call.receive<List<SymbolId>>()
         ExpressionNetworkImpl.markMustCalc(ids)
         call.respond(HttpStatusCode.OK)
     }
@@ -172,8 +169,8 @@ fun fib(n: Int): Int {
 fun Route.adminHttpRoutes() {
     adminCheck {
         get("/tasks") {
-            val ids: List<DataId> =
-                call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList() ?: emptyList()
+            val ids: List<SymbolId> =
+                call.request.queryParameters.getAll("id")?.map { SymbolId(it) }?.toList() ?: emptyList()
             if (ids.isEmpty()) {
                 call.respond(HttpStatusCode.OK, emptyList<Task>())
                 return@get

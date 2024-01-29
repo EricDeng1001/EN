@@ -25,8 +25,8 @@ class HttpExecutorTest {
 
     private val runRequestBody = RunRequestBody(
         Expression(
-            inputs = listOf(Input(InputType.List, listOf(DataId("open"), DataId("close")))),
-            outputs = listOf(DataId("output")),
+            inputs = listOf(Input(InputType.List, listOf(SymbolId("open"), SymbolId("close")))),
+            outputs = listOf(SymbolId("output")),
             funcId = FuncId("func1"),
             dataflow = "",
             arguments = mapOf("arg1" to Argument(type = "float", value = "10"))
