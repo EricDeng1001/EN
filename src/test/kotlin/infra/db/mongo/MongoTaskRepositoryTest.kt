@@ -72,7 +72,7 @@ class MongoTaskRepositoryTest {
     @Test
     fun getList() {
         runBlocking {
-            val ret = mongoTaskRepository.getListByDataIds(tasks.keys.map { it.str })
+            val ret = tasks.mapNotNull { mongoTaskRepository.getTaskByDataId(it.key) }.toList()
             ret.forEach {
                 assertNotNull(tasks[it.expression.outputs[0]])
             }

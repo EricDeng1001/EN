@@ -137,12 +137,30 @@ class MockPerf : PerformanceService {
 
 }
 
+class MockSymbol : SymbolLibraryService {
+    private val symbolList = mutableMapOf<SymbolId, Symbol>()
+
+    fun addDSymbol(symbolId: SymbolId) {
+        symbolList[symbolId] = Symbol(symbolId, symbolId.str, "2400", "D")
+    }
+
+    fun addMSymbol(symbolId: SymbolId) {
+        symbolList[symbolId] = Symbol(symbolId, symbolId.str, "0", "M")
+    }
+
+
+    override suspend fun getSymbol(symbolId: SymbolId): Symbol {
+        return symbolList[symbolId]!!
+    }
+
+}
+
 class ExpressionNetworkTest(
     val nodeRepository: MockNodeRepo,
     val taskRepository: MockTaskRepo,
-    val executor: MockExecutor
-) : ExpressionNetwork(nodeRepository, taskRepository, executor, MockMQ(), MockPerf()) {
-
+    val executor: MockExecutor,
+    val symbolLibrary: MockSymbol,
+) : ExpressionNetwork(nodeRepository, taskRepository, executor, MockMQ(), MockPerf(), MockSymbol()) {
 }
 
 fun List<SymbolId>.toInputs(): List<Input> {
@@ -162,7 +180,8 @@ object TestCases {
         val e = ExpressionNetworkTest(
             MockNodeRepo(),
             MockTaskRepo(),
-            MockExecutor()
+            MockExecutor(),
+            MockSymbol()
         )
         e.executor.callback = e
         return e
@@ -466,6 +485,51 @@ object TestCases {
                 assertEquals(false, en.nodeRepository.queryByOutput(id)!!.valid)
             }
         }
+    }
+
+    @Test
+    fun testNormalize() {
+        val en = setUp()
+        val midDayPointer = Pointer(17682920)
+        val endDayPointer = Pointer(17685340)
+        en.symbolLibrary.addDSymbol(SymbolId("D"))
+        en.symbolLibrary.addMSymbol(SymbolId("M"))
+
+        fun getPreTimePointer(pointer: Pointer, offset: Int, freq: Int): Pointer {
+            val preTimePoint = ((pointer.value) / freq) * freq + offset
+            return Pointer(preTimePoint)
+        }
+
+        suspend fun normalizePointer(dataId: DataId, pointer: Pointer): Pointer {
+            return try {
+                en.symbolLibrary.getSymbol(SymbolId(dataId.str)).let { symbol ->
+                    getPreTimePointer(pointer, symbol.offsetValue, symbol.frequencyValue)
+                }
+            } catch (e: Exception) {
+                println("Error normalizing pointer: ${e.message}")
+                pointer
+            }
+        }
+
+        runBlocking {
+            assertEquals(
+                midDayPointer,
+                normalizePointer(DataId("M"), midDayPointer)
+            )
+            assertEquals(
+                midDayPointer,
+                normalizePointer(DataId("D"), midDayPointer)
+            )
+            assertEquals(
+                endDayPointer,
+                normalizePointer(DataId("M"), endDayPointer)
+            )
+            assertEquals(
+                midDayPointer,
+                normalizePointer(DataId("D"), endDayPointer)
+            )
+        }
+
     }
 }
 
