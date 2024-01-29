@@ -432,6 +432,7 @@ abstract class ExpressionNetwork(
             throw Error("origin node $id is null")
         }
         val all = upstreamAllNodes(set)
+        logger.debug("allUpstreamNode: {}", all)
         return all.filter { it.depth != 0 }.map { it.idStr }.toList()
     }
 
