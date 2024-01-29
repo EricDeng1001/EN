@@ -15,11 +15,6 @@ enum class Frequency(val frequencyValue: Int) {
     D(4840);
 }
 
-
-@JvmInline
-@Serializable
-value class SymbolId(val str: String)
-
 @Serializable
 data class Symbol(
     val id: SymbolId,

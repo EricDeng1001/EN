@@ -277,9 +277,9 @@ abstract class ExpressionNetwork(
         return Pointer(preTimePoint)
     }
 
-    private suspend fun normalizePointer(dataId: DataId, pointer: Pointer): Pointer {
+    private suspend fun normalizePointer(id: SymbolId, pointer: Pointer): Pointer {
         return try {
-            symbolLibraryService.getSymbol(SymbolId(dataId.str)).let { symbol ->
+            symbolLibraryService.getSymbol(id).let { symbol ->
                 getPreTimePointer(pointer, symbol.offsetValue, symbol.frequencyValue)
             }
         } catch (e: Exception) {
