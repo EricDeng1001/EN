@@ -53,6 +53,7 @@ data class NodeDO(
         val inputsFlat: List<String>,
         val outputs: List<String>,
         val funcId: String,
+        val dataflow: String,
         val arguments: TreeMap<String, ArgumentDO>
     ) {
 
@@ -67,6 +68,7 @@ data class NodeDO(
                 inputs.map { it.toModel() },
                 outputs.map { DataId(it) },
                 FuncId(funcId),
+                dataflow,
                 arguments.map { (k, v) -> k to v.toModel() }.toMap()
             )
         }
@@ -101,6 +103,7 @@ fun Expression.toMongo(): NodeDO.ExpressionDO {
         inputs.flatMap { it.toMongo().ids },
         outputs.map { it.str },
         funcId.value,
+        dataflow,
         arguments.map { (k, v) -> k to v.toMongo() }.toMap(TreeMap())
     )
 }
@@ -185,6 +188,7 @@ object MongoNodeRepository : NodeRepository {
                     listOf(
                         eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputs.name}", edo.inputs),
                         eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", edo.funcId),
+                        eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::dataflow.name}", edo.dataflow),
                         eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::arguments.name}", edo.arguments)
                     )
                 )
