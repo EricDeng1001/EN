@@ -3,6 +3,7 @@ package infra.db.mongo
 import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.ReplaceOneModel
 import com.mongodb.client.model.ReplaceOptions
+import com.mongodb.client.model.Updates
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -195,6 +196,17 @@ object MongoNodeRepository : NodeRepository {
             ).firstOrNull()
         }
 
+    }
+
+    override suspend fun logicDelete(ids: List<NodeId>): Long {
+        val query = `in`(NodeDO::id.name, ids.map { it.str }.toList())
+        val updates = Updates.combine(
+            Updates.set(NodeDO::effectivePtr.name, 0),
+            Updates.set(NodeDO::expectedPtr.name, 0)
+        )
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).updateMany(
+            query, updates
+        ).modifiedCount
     }
 
 }
