@@ -649,5 +649,22 @@ abstract class ExpressionNetwork(
             updateRootSafeAsync(node)
         }
     }
+
+    suspend fun deleteTFDBData(ids: List<SymbolId>) {
+        try {
+            val successDeletedNum = nodeRepository.logicDelete(ids.map { NodeId(it.str) }.toList())
+            logger.debug("logic delete ids num: {} deleted num: {}", ids.size, successDeletedNum)
+        } catch (e: Exception) {
+            logger.error("logic delete ids error: $e")
+        }
+
+        ids.forEach {
+            try {
+                executor.deleteData(it)
+            } catch (e: Exception) {
+                logger.error("delete tfdb data $it error: $e")
+            }
+        }
+    }
 }
 
