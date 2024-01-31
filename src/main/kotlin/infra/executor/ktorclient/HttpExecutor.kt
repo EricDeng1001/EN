@@ -22,7 +22,14 @@ import java.io.File
 data class Url(val run: String, val tryCancel: String, val deleteData: String)
 
 @Serializable
-data class ExecutorConfig(val http: Boolean, val host: String, val port: Int, val url: Url)
+data class ExecutorConfig(
+    val http: Boolean,
+    val host: String,
+    val port: Int,
+    val url: Url,
+    val requestTimeoutMilliseconds: Long? = (60 * 1000),
+    val connectTimeoutMilliseconds: Long? = (60 * 1000)
+)
 
 @Serializable
 data class RunRequestBody(
@@ -54,8 +61,8 @@ object HttpExecutor : Executor {
             json(Json(from = DefaultJson) { ignoreUnknownKeys = true })
         }
         install(HttpTimeout) {
-            requestTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
-            connectTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
+            requestTimeoutMillis = config.requestTimeoutMilliseconds
+            connectTimeoutMillis = config.connectTimeoutMilliseconds
         }
     }
 
