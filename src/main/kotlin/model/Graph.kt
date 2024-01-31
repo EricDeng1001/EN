@@ -149,11 +149,26 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
 @Serializable
 data class UpdateGraph(val nodes: List<Node>) {
 
-    private val nodesMap: MutableMap<DataId, DataId> = HashMap()
+    fun debugView(): GraphDebugView {
+        val ns = nodes.map {
+            GraphDebugView.GraphDebugNode(
+                GraphDebugView.GraphDebugNode.Id(it.id.str),
+                "data",
+                it.id.str,
+                GraphDebugView.GraphDebugNode.DebugInfo(
+                    it.valid,
+                    it.effectivePtr.value,
+                    it.expectedPtr.value,
+                    it.isPerfCalculated,
+                    it.mustCalculate,
+                    it.shouldUpdate,
+                    it.expression
+                )
+            )
+        }.toList()
 
-    private val edges: MutableList<Pair<DataId, DataId>> = ArrayList()
+        val es = HashMap<DataId, DataId>()
 
-    init {
         for (node in nodes) {
             val ex = node.expression
 
@@ -161,44 +176,22 @@ data class UpdateGraph(val nodes: List<Node>) {
                 continue
             }
 
-            for (input in ex.inputs) {
-                for (i in input.ids) {
-                    nodesMap.computeIfAbsent(i) { i }
-
-                    for (output in ex.outputs) {
-                        edges.add(Pair(i, output))
+            for (n in nodes) {
+                for (input in n.expression.inputs) {
+                    for (i in input.ids) {
+                        for (output in n.expression.outputs) {
+                            es[i] = output
+                        }
                     }
                 }
             }
         }
-    }
 
-    fun debugView(): GraphDebugView {
-        val cache = nodes.associateBy { it.id.str }.toMap()
-        val ns = nodesMap.values.map {
-            GraphDebugView.GraphDebugNode(
-                GraphDebugView.GraphDebugNode.Id(it.str),
-                "data",
-                it.str,
-                GraphDebugView.GraphDebugNode.DebugInfo(
-                    cache[it.str]!!.valid,
-                    cache[it.str]!!.effectivePtr.value,
-                    cache[it.str]!!.expectedPtr.value,
-                    cache[it.str]!!.isPerfCalculated,
-                    cache[it.str]!!.mustCalculate,
-                    cache[it.str]!!.shouldUpdate,
-                    cache[it.str]!!.expression
-                )
-            )
-        }.toList()
-
-        val es = edges.map { (k, v) ->
+        return GraphDebugView(ns, es.map { (k, v) ->
             GraphDebugView.GraphDebugEdge(
-                GraphDebugView.GraphDebugNode.Id(k.str),
-                GraphDebugView.GraphDebugNode.Id(v.str)
+                GraphDebugView.GraphDebugNode.Id(k.str), GraphDebugView
+                    .GraphDebugNode.Id(v.str)
             )
-        }.toList()
-
-        return GraphDebugView(ns, es)
+        })
     }
 }
