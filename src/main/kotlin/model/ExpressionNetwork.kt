@@ -481,7 +481,13 @@ abstract class ExpressionNetwork(
 
     private suspend fun saveExpression(expression: Expression): List<DataId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
-        if (queryByExpression != null) return queryByExpression.expression.outputs
+        if (queryByExpression != null) {
+            if(expression.generated == false && queryByExpression.expression.generated == true){
+                queryByExpression.expression.generated = false
+                nodeRepository.save(queryByExpression)
+            }
+            return queryByExpression.expression.outputs
+        }
 
         for (input in expression.inputs) {
             for (id in input.ids) {
