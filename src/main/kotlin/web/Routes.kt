@@ -50,6 +50,9 @@ data class SetEffExpRequest(val ids: List<DataId>, val eff: Int, val exp: Int)
 @Serializable
 data class MarkShouldUpdateRequest(val ids: List<DataId>, val shouldUpdate: Boolean)
 
+@Serializable
+data class DeleteExpressions(val ids: List<DataId>)
+
 fun Route.httpRoutes() {
 
     get("/expression/{id}") {
@@ -175,6 +178,12 @@ fun Route.httpRoutes() {
         val id: DataId =
             call.request.queryParameters["id"]?.let { DataId(it) } ?: throw IllegalArgumentException("id is required")
         call.respond(ExpressionNetworkImpl.allUpstreamNodeBesidesRoot(id))
+    }
+
+    delete ("/expression") {
+        val req = call.receive<DeleteExpressions>()
+        ExpressionNetworkImpl.deleteTFDBData(req.ids.map { SymbolId(it.str) })
+        call.respond(HttpStatusCode.OK)
     }
 
 }
