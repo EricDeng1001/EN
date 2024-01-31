@@ -54,6 +54,7 @@ data class NodeDO(
         val outputs: List<String>,
         val funcId: String,
         val dataflow: String,
+        val generated: Boolean? = false,
         val arguments: TreeMap<String, ArgumentDO>
     ) {
 
@@ -69,6 +70,7 @@ data class NodeDO(
                 outputs.map { DataId(it) },
                 FuncId(funcId),
                 dataflow,
+                generated,
                 arguments.map { (k, v) -> k to v.toModel() }.toMap()
             )
         }
@@ -104,6 +106,7 @@ fun Expression.toMongo(): NodeDO.ExpressionDO {
         outputs.map { it.str },
         funcId.value,
         dataflow,
+        generated,
         arguments.map { (k, v) -> k to v.toMongo() }.toMap(TreeMap())
     )
 }
