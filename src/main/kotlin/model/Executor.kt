@@ -7,4 +7,6 @@ interface Executor {
 //    suspend fun runBatch(batch: BatchExpression, from: Pointer, to: Pointer, withId: TaskId)
 
     suspend fun tryCancel(id: TaskId)
+
+    suspend fun deleteData(id: SymbolId)
 }

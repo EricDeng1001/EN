@@ -4,3 +4,4 @@ port: 50051
 url:
   run: "/executor/expr"
   try-cancel: "/cancel/{id}"
+  delete-data: "/database/source/{data_name}"

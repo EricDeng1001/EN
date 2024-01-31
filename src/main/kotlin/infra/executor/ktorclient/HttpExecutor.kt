@@ -19,7 +19,7 @@ import model.*
 import java.io.File
 
 @Serializable
-data class Url(val run: String, val tryCancel: String)
+data class Url(val run: String, val tryCancel: String, val deleteData: String)
 
 @Serializable
 data class ExecutorConfig(val http: Boolean, val host: String, val port: Int, val url: Url)
@@ -99,5 +99,21 @@ object HttpExecutor : Executor {
             throw Exception("tryCancel failed: ${response.status}")
         }
         val body = response.body<TryCancelResponseBody>()
+    }
+
+    override suspend fun deleteData(id: SymbolId) {
+        val url = URLBuilder(
+            protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
+            host = config.host,
+            port = config.port,
+        ).apply {
+            path(config.url.deleteData.replace("{data_name}", id.str))
+            parameters.append("confirm", "true")
+        }.build().toString()
+
+        val response = client.delete(url)
+        if (response.status != HttpStatusCode.OK) {
+            throw Exception("deleteData failed: ${response.status}")
+        }
     }
 }
