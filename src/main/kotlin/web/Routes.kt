@@ -48,6 +48,16 @@ data class MarkShouldUpdateRequest(val ids: List<DataId>, val shouldUpdate: Bool
 
 fun Route.httpRoutes() {
 
+    get("/expression/{id}") {
+        val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
+        val node = ExpressionNetworkImpl.getNode(DataId(id))
+        if (node == null) {
+            call.respond(HttpStatusCode.NotFound)
+        } else {
+            call.respond(node.expression)
+        }
+    }
+
     get("/graph") {
         val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
             ?: throw IllegalArgumentException("id is required")

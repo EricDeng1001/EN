@@ -29,7 +29,7 @@ abstract class ExpressionNetwork(
     private val dispatcher = newFixedThreadPoolContext(Runtime.getRuntime().availableProcessors(), "en-background")
     private val backgroundTasks = CoroutineScope(dispatcher)
 
-    private suspend fun getNode(id: DataId): Node? {
+    suspend fun getNode(id: DataId): Node? {
         return nodeRepository.queryByOutput(id)
     }
 
