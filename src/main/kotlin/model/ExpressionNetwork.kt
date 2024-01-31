@@ -482,7 +482,7 @@ abstract class ExpressionNetwork(
     private suspend fun saveExpression(expression: Expression): List<DataId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
         if (queryByExpression != null) {
-            if(expression.generated == false && queryByExpression.expression.generated == true){
+            if (expression.generated == false && queryByExpression.expression.generated == true) {
                 queryByExpression.expression.generated = false
                 nodeRepository.save(queryByExpression)
             }
@@ -633,7 +633,7 @@ abstract class ExpressionNetwork(
         return taskRepository.getTaskByDataIdAndTo(id, to)
     }
 
-    suspend fun getUpdateGraph(): GraphDebugView{
+    suspend fun getUpdateGraph(): GraphDebugView {
         val nodes = nodeRepository.queryByShouldUpdate(true)
         return UpdateGraph(nodes).debugView()
     }
@@ -656,7 +656,7 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun deleteTFDBData(ids: List<DataId>) {
+    suspend fun deleteTFDBData(ids: List<DataId>): List<DataId> {
         val needDeletedIds = ids.mapNotNull { getNode(it) }.filter { it.expression.generated == true }
         try {
             val successDeletedNum = nodeRepository.logicDelete(needDeletedIds.map { it.id })
@@ -665,11 +665,13 @@ abstract class ExpressionNetwork(
             logger.error("logic delete ids error: $e")
         }
 
-        needDeletedIds.forEach {
+        return needDeletedIds.mapNotNull {
             try {
                 executor.deleteData(it.expression.outputs[0])
+                return@mapNotNull it.expression.outputs[0]
             } catch (e: Exception) {
                 logger.error("delete tfdb data $it error: $e")
+                return@mapNotNull null
             }
         }
     }
