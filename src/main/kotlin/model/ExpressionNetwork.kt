@@ -29,7 +29,7 @@ abstract class ExpressionNetwork(
     private val dispatcher = newFixedThreadPoolContext(Runtime.getRuntime().availableProcessors(), "en-background")
     private val backgroundTasks = CoroutineScope(dispatcher)
 
-    private suspend fun getNode(id: DataId): Node? {
+    suspend fun getNode(id: DataId): Node? {
         return nodeRepository.queryByOutput(id)
     }
 
@@ -603,7 +603,7 @@ abstract class ExpressionNetwork(
 
     private suspend fun pushFinished(node: Node) {
         for (id in node.ids()) {
-            messageQueue.pushRunFinish(id)
+            messageQueue.pushRunFinish(id, node.effectivePtr)
         }
     }
 
@@ -625,6 +625,11 @@ abstract class ExpressionNetwork(
 
     suspend fun getTaskByDataIdAndTo(id: DataId, to: Pointer): Task? {
         return taskRepository.getTaskByDataIdAndTo(id, to)
+    }
+
+    suspend fun getUpdateGraph(): GraphDebugView{
+        val nodes = nodeRepository.queryByShouldUpdate(true)
+        return UpdateGraph(nodes).debugView()
     }
 
     suspend fun setEff0Exp0(ids: List<DataId>, eff: Pointer, exp: Pointer) {

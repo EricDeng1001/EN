@@ -35,7 +35,11 @@ data class RunSuccessResponse(val taskId: String)
 data class RunErrorResponse(val taskId: String, val message: String, val type: String)
 
 @Serializable
-data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<DataId>? = emptySet())
+data class WebSocketRequest(
+    val sub: Set<DataId>? = emptySet(),
+    val unsub: Set<DataId>? = emptySet(),
+    val update: Boolean? = false
+)
 
 @Serializable
 data class ExpressionState(val id: DataId, val state: String? = null)
@@ -47,6 +51,16 @@ data class SetEffExpRequest(val ids: List<DataId>, val eff: Int, val exp: Int)
 data class MarkShouldUpdateRequest(val ids: List<DataId>, val shouldUpdate: Boolean)
 
 fun Route.httpRoutes() {
+
+    get("/expression/{id}") {
+        val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
+        val node = ExpressionNetworkImpl.getNode(DataId(id))
+        if (node == null) {
+            call.respond(HttpStatusCode.NotFound)
+        } else {
+            call.respond(node.expression)
+        }
+    }
 
     get("/graph") {
         val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
@@ -179,6 +193,16 @@ fun Route.adminHttpRoutes() {
                 return@get
             }
             call.respond(HttpStatusCode.OK, ExpressionNetworkImpl.getTasksByDataId(ids))
+        }
+
+        get("/update/graph") {
+            call.respond(ExpressionNetworkImpl.getUpdateGraph())
+        }
+
+        put("/expression/{id}") {
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
+            ExpressionNetworkImpl.forceRun(DataId(id))
+            call.respond(HttpStatusCode.OK)
         }
     }
 }

@@ -158,6 +158,12 @@ object MongoNodeRepository : NodeRepository {
         ).map { it.toModel() }.toList()
     }
 
+    override suspend fun queryByShouldUpdate(shouldUpdate: Boolean): List<Node> {
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            eq(NodeDO::shouldUpdate.name, shouldUpdate)
+        ).map { it.toModel() }.toList()
+    }
+
     override suspend fun queryAllRoot(): List<Node> {
         return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", 0)
