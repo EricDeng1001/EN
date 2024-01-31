@@ -58,7 +58,7 @@ fun Route.httpRoutes() {
         if (node == null) {
             call.respond(HttpStatusCode.NotFound)
         } else {
-            call.respond(node.expression)
+            call.respond(node)
         }
     }
 
