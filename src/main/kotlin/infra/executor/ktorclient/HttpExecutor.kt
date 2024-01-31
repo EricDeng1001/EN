@@ -108,7 +108,7 @@ object HttpExecutor : Executor {
         val body = response.body<TryCancelResponseBody>()
     }
 
-    override suspend fun deleteData(id: SymbolId) {
+    override suspend fun deleteData(id: DataId) {
         val url = URLBuilder(
             protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
             host = config.host,

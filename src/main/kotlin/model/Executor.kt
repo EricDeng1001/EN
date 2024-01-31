@@ -8,5 +8,5 @@ interface Executor {
 
     suspend fun tryCancel(id: TaskId)
 
-    suspend fun deleteData(id: SymbolId)
+    suspend fun deleteData(id: DataId)
 }

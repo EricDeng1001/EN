@@ -13,9 +13,6 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
@@ -182,7 +179,7 @@ fun Route.httpRoutes() {
 
     delete ("/expression") {
         val req = call.receive<DeleteExpressions>()
-        ExpressionNetworkImpl.deleteTFDBData(req.ids.map { SymbolId(it.str) })
+        ExpressionNetworkImpl.deleteTFDBData(req.ids)
         call.respond(HttpStatusCode.OK)
     }
 
