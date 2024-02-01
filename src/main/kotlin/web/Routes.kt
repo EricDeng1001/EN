@@ -54,12 +54,9 @@ fun Route.httpRoutes() {
 
     get("/expression/{id}") {
         val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
-        val node = ExpressionNetworkImpl.getNode(DataId(id))
-        if (node == null) {
-            call.respond(HttpStatusCode.NotFound)
-        } else {
-            call.respond(node)
-        }
+        val start = call.request.queryParameters["start"]
+        val end = call.request.queryParameters["end"]
+        call.respond(ExpressionNetworkImpl.getNodeWithInfo(DataId(id), start, end))
     }
 
     get("/graph") {
@@ -177,7 +174,7 @@ fun Route.httpRoutes() {
         call.respond(ExpressionNetworkImpl.allUpstreamNodeBesidesRoot(id))
     }
 
-    delete ("/expression") {
+    delete("/expression") {
         val req = call.receive<DeleteExpressions>()
         call.respond(ExpressionNetworkImpl.deleteTFDBData(req.ids))
     }

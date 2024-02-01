@@ -16,7 +16,8 @@ abstract class ExpressionNetwork(
     private val executor: Executor,
     private val messageQueue: MessageQueue,
     private val performanceService: PerformanceService,
-    private val symbolLibraryService: SymbolLibraryService
+    private val symbolLibraryService: SymbolLibraryService,
+    private val worker: Worker
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
@@ -507,7 +508,8 @@ abstract class ExpressionNetwork(
             expectedPtr = Pointer.ZERO,
             expression = expression,
             valid = true,
-            depth = findDepth(expression)
+            depth = findDepth(expression),
+            info = ""
         )
         nodeRepository.save(node)
         return result
@@ -676,5 +678,19 @@ abstract class ExpressionNetwork(
             }
         }
     }
+
+    suspend fun getNodeWithInfo(id: DataId, start: String?, end: String?): Node {
+        var node = nodeRepository.queryByOutput(id) ?: throw Error("node $id is null")
+        try {
+            val info = worker.getExpressDataInfo(id, start, end)
+            node.info = info
+            node = nodeRepository.save(node)
+        } catch (e: Exception) {
+            logger.error("getExpressDataInfo $id error: $e")
+            throw e
+        }
+        return node
+    }
+
 }
 

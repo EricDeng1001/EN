@@ -22,7 +22,8 @@ data class NodeDO(
     val isPerfCalculated: Boolean? = null,
     val mustCalculate: Boolean? = null,
     val shouldUpdate: Boolean? = null,
-    var depth: Int? = null
+    var depth: Int? = null,
+    var info: String? = null
 ) {
     fun toModel(): Node {
         return Node(
@@ -33,7 +34,8 @@ data class NodeDO(
             isPerfCalculated = isPerfCalculated ?: false,
             mustCalculate = mustCalculate ?: false,
             shouldUpdate = shouldUpdate ?: false,
-            depth = depth ?: 0
+            depth = depth ?: 0,
+            info = info ?: ""
         )
     }
 
@@ -89,7 +91,8 @@ fun Node.toMongo(): NodeDO {
         isPerfCalculated,
         mustCalculate = mustCalculate,
         shouldUpdate = shouldUpdate,
-        depth = depth
+        depth = depth,
+        info = info
     )
 }
 
