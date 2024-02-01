@@ -56,7 +56,8 @@ fun Route.httpRoutes() {
         val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
         val start = call.request.queryParameters["start"]
         val end = call.request.queryParameters["end"]
-        call.respond(ExpressionNetworkImpl.getNodeWithInfo(DataId(id), start, end))
+        val needCal = call.request.queryParameters["need_cal"]?.let { true } ?:false
+        call.respond(ExpressionNetworkImpl.getNodeWithInfo(DataId(id), start, end, needCal))
     }
 
     get("/graph") {

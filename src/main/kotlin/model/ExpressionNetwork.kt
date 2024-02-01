@@ -679,8 +679,11 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun getNodeWithInfo(id: DataId, start: String?, end: String?): Node {
+    suspend fun getNodeWithInfo(id: DataId, start: String?, end: String?, needCal: Boolean = false): Node {
         var node = nodeRepository.queryByOutput(id) ?: throw Error("node $id is null")
+        if (!node.info.isNullOrBlank() && !needCal) {
+            return node
+        }
         try {
             val info = worker.getExpressDataInfo(id, start, end)
             node.info = info
