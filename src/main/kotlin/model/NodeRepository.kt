@@ -8,11 +8,12 @@ interface NodeRepository {
     suspend fun queryByOutput(id: DataId): Node?
     suspend fun queryByFunc(funcId: FuncId): List<Node>
 
+    suspend fun queryByShouldUpdate(shouldUpdate: Boolean): List<Node>
+
     suspend fun queryAllRoot(): List<Node>
     suspend fun queryAllNonRoot(): List<Node>
     suspend fun saveAll(nodes: Iterable<Node>)
     suspend fun get(id: NodeId): Node?
-    suspend fun delete(ids: List<NodeId>)
-    suspend fun findAllBesidesIds(ids: List<NodeId>): List<NodeId>
+    suspend fun logicDelete(ids: List<NodeId>): Long
 
 }

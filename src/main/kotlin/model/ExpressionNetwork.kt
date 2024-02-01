@@ -8,7 +8,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.HashSet
 import kotlin.math.absoluteValue
 
 abstract class ExpressionNetwork(
@@ -16,7 +15,8 @@ abstract class ExpressionNetwork(
     private val taskRepository: TaskRepository,
     private val executor: Executor,
     private val messageQueue: MessageQueue,
-    private val performanceService: PerformanceService
+    private val performanceService: PerformanceService,
+    private val symbolLibraryService: SymbolLibraryService
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
@@ -29,7 +29,7 @@ abstract class ExpressionNetwork(
     private val dispatcher = newFixedThreadPoolContext(Runtime.getRuntime().availableProcessors(), "en-background")
     private val backgroundTasks = CoroutineScope(dispatcher)
 
-    private suspend fun getNode(id: DataId): Node? {
+    suspend fun getNode(id: DataId): Node? {
         return nodeRepository.queryByOutput(id)
     }
 
@@ -51,11 +51,11 @@ abstract class ExpressionNetwork(
         nodeRepository.saveAll(changed)
     }
 
-    suspend fun markShouldUpdate(ids: List<DataId>) {
+    suspend fun markShouldUpdate(ids: List<DataId>, shouldUpdate: Boolean) {
         val changed = ArrayList<Node>(ids.size)
         for (id in ids) {
             val node = getNode(id) ?: continue
-            node.shouldUpdate = true
+            node.shouldUpdate = shouldUpdate
             changed.add(node)
         }
         nodeRepository.saveAll(changed)
@@ -271,13 +271,29 @@ abstract class ExpressionNetwork(
         }
     }
 
+    private fun getPreTimePointer(pointer: Pointer, offset: Int, freq: Int): Pointer {
+        val preTimePoint = ((pointer.value - offset) / freq) * freq + offset
+        return Pointer(preTimePoint)
+    }
+
+    private suspend fun normalizePointer(dataId: DataId, pointer: Pointer): Pointer {
+        return try {
+            symbolLibraryService.getSymbol(SymbolId(dataId.str)).let { symbol ->
+                getPreTimePointer(pointer, symbol.offsetValue, symbol.frequencyValue)
+            }
+        } catch (e: Exception) {
+            logger.error("Error normalizing pointer: ${e.message}")
+            throw e
+        }
+    }
+
     private suspend fun findExpectedPtr(expression: Expression): Pointer {
         val nodes = upstreamOneLevel(expression)
         var expectedPtr: Pointer = Pointer.MAX
         for (node in nodes) {
             expectedPtr = minOf(node.effectivePtr, expectedPtr)
         }
-        return expectedPtr
+        return normalizePointer(expression.outputs[0], expectedPtr)
     }
 
     // end 1
@@ -407,21 +423,22 @@ abstract class ExpressionNetwork(
         return upstreamOneLevel(node.expression)
     }
 
-    suspend fun findAllUpstreamNode(id: DataId) : List<String> {
+    suspend fun allUpstreamNodeBesidesRoot(id: DataId): List<String> {
         val node = getNode(id)
-        val set  = HashSet<Node>()
-        if (node != null){
+        val set = HashSet<Node>()
+        if (node != null) {
             set.add(node)
-        }else{
+        } else {
             throw Error("origin node $id is null")
         }
         val all = upstreamAllNodes(set)
-        return all.map { it.idStr }.toList()
+        logger.debug("allUpstreamNode: {}", all)
+        return all.filter { it.depth != 0 }.map { it.idStr }.toList()
     }
 
     private suspend fun upstreamAllNodes(originSet: HashSet<Node>): Set<Node> {
 //       非递归缓存去重会更快
-        if (originSet.isEmpty()){
+        if (originSet.isEmpty()) {
             return originSet
         }
         val nodeSet = HashSet<Node>()
@@ -433,7 +450,7 @@ abstract class ExpressionNetwork(
         }
 
         val findNodes = upstreamAllNodes(nodeSet)
-        findNodes.forEach{
+        findNodes.forEach {
             originSet.add(it)
         }
         return originSet
@@ -464,7 +481,13 @@ abstract class ExpressionNetwork(
 
     private suspend fun saveExpression(expression: Expression): List<DataId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
-        if (queryByExpression != null) return queryByExpression.expression.outputs
+        if (queryByExpression != null) {
+            if (expression.generated == false && queryByExpression.expression.generated == true) {
+                queryByExpression.expression.generated = false
+                nodeRepository.save(queryByExpression)
+            }
+            return queryByExpression.expression.outputs
+        }
 
         for (input in expression.inputs) {
             for (id in input.ids) {
@@ -560,9 +583,13 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun forceRerun(id: DataId) {
-        val node = getNode(id)?:return
+        val node = getNode(id) ?: return
         val newTask = Task(
-            id = genId(), expression = node.expression, start = Clock.System.now(), from = Pointer.ZERO, to = node.expectedPtr
+            id = genId(),
+            expression = node.expression,
+            start = Clock.System.now(),
+            from = Pointer.ZERO,
+            to = node.expectedPtr
         )
         executor.run(newTask)
     }
@@ -582,7 +609,7 @@ abstract class ExpressionNetwork(
 
     private suspend fun pushFinished(node: Node) {
         for (id in node.ids()) {
-            messageQueue.pushRunFinish(id)
+            messageQueue.pushRunFinish(id, node.effectivePtr)
         }
     }
 
@@ -606,6 +633,11 @@ abstract class ExpressionNetwork(
         return taskRepository.getTaskByDataIdAndTo(id, to)
     }
 
+    suspend fun getUpdateGraph(): GraphDebugView {
+        val nodes = nodeRepository.queryByShouldUpdate(true)
+        return UpdateGraph(nodes).debugView()
+    }
+
     suspend fun setEff0Exp0(ids: List<DataId>, eff: Pointer, exp: Pointer) {
         val res = mutableListOf<Node>()
         for (id in ids) {
@@ -621,6 +653,27 @@ abstract class ExpressionNetwork(
         for (id in ids) {
             val node = getNode(id) ?: continue
             updateRootSafeAsync(node)
+        }
+    }
+
+    suspend fun deleteTFDBData(ids: List<DataId>): List<DataId> {
+        val needDeletedIds = ids.mapNotNull { getNode(it) }.filter { it.expression.generated == true }
+        try {
+            val successDeletedNum = nodeRepository.logicDelete(needDeletedIds.map { it.id })
+            logger.debug("logic delete ids num: {} deleted num: {}", ids.size, successDeletedNum)
+        } catch (e: Exception) {
+            logger.error("logic delete ids error: $e")
+            throw e
+        }
+
+        return needDeletedIds.mapNotNull {
+            try {
+                executor.deleteData(it.expression.outputs[0])
+                return@mapNotNull it.expression.outputs[0]
+            } catch (e: Exception) {
+                logger.error("delete tfdb data $it error: $e")
+                return@mapNotNull null
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ package infra.db.mongo
 import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.ReplaceOneModel
 import com.mongodb.client.model.ReplaceOptions
+import com.mongodb.client.model.Updates
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -54,6 +55,7 @@ data class NodeDO(
         val outputs: List<String>,
         val funcId: String,
         val dataflow: String,
+        val generated: Boolean? = false,
         val arguments: TreeMap<String, ArgumentDO>
     ) {
 
@@ -69,6 +71,7 @@ data class NodeDO(
                 outputs.map { DataId(it) },
                 FuncId(funcId),
                 dataflow,
+                generated,
                 arguments.map { (k, v) -> k to v.toModel() }.toMap()
             )
         }
@@ -104,6 +107,7 @@ fun Expression.toMongo(): NodeDO.ExpressionDO {
         outputs.map { it.str },
         funcId.value,
         dataflow,
+        generated,
         arguments.map { (k, v) -> k to v.toMongo() }.toMap(TreeMap())
     )
 }
@@ -152,6 +156,12 @@ object MongoNodeRepository : NodeRepository {
     override suspend fun queryByFunc(funcId: FuncId): List<Node> {
         return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::funcId.name}", funcId.value)
+        ).map { it.toModel() }.toList()
+    }
+
+    override suspend fun queryByShouldUpdate(shouldUpdate: Boolean): List<Node> {
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            eq(NodeDO::shouldUpdate.name, shouldUpdate)
         ).map { it.toModel() }.toList()
     }
 
@@ -210,6 +220,17 @@ object MongoNodeRepository : NodeRepository {
                 `in`(NodeDO::id.name, ids.map { it.str }.toList())
             )
         )
+    }
+
+    override suspend fun logicDelete(ids: List<NodeId>): Long {
+        val query = `in`(NodeDO::id.name, ids.map { it.str }.toList())
+        val updates = Updates.combine(
+            Updates.set(NodeDO::effectivePtr.name, 0),
+            Updates.set(NodeDO::expectedPtr.name, 0)
+        )
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).updateMany(
+            query, updates
+        ).modifiedCount
     }
 
 }

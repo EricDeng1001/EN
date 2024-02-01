@@ -59,7 +59,7 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
         for (node in nodes) {
             val ex = node.expression
 
-            if (ex.isRoot()){
+            if (ex.isRoot()) {
                 continue
             }
 
@@ -79,7 +79,7 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
         for (node in nodes) {
             val ex = node.expression
 
-            if (ex.isRoot()){
+            if (ex.isRoot()) {
                 continue
             }
 
@@ -143,5 +143,55 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
         }.toList()
 
         return GraphDebugView(ns + os, es)
+    }
+}
+
+@Serializable
+data class UpdateGraph(val nodes: List<Node>) {
+
+    fun debugView(): GraphDebugView {
+        val ns = nodes.map {
+            GraphDebugView.GraphDebugNode(
+                GraphDebugView.GraphDebugNode.Id(it.id.str),
+                "data",
+                it.id.str,
+                GraphDebugView.GraphDebugNode.DebugInfo(
+                    it.valid,
+                    it.effectivePtr.value,
+                    it.expectedPtr.value,
+                    it.isPerfCalculated,
+                    it.mustCalculate,
+                    it.shouldUpdate,
+                    it.expression
+                )
+            )
+        }.toList()
+
+        val es = HashMap<DataId, DataId>()
+
+        for (node in nodes) {
+            val ex = node.expression
+
+            if (ex.isRoot()) {
+                continue
+            }
+
+            for (n in nodes) {
+                for (input in n.expression.inputs) {
+                    for (i in input.ids) {
+                        for (output in n.expression.outputs) {
+                            es[i] = output
+                        }
+                    }
+                }
+            }
+        }
+
+        return GraphDebugView(ns, es.map { (k, v) ->
+            GraphDebugView.GraphDebugEdge(
+                GraphDebugView.GraphDebugNode.Id(k.str), GraphDebugView
+                    .GraphDebugNode.Id(v.str)
+            )
+        })
     }
 }

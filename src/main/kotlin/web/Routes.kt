@@ -13,9 +13,6 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
@@ -35,7 +32,11 @@ data class RunSuccessResponse(val taskId: String)
 data class RunErrorResponse(val taskId: String, val message: String, val type: String)
 
 @Serializable
-data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<DataId>? = emptySet())
+data class WebSocketRequest(
+    val sub: Set<DataId>? = emptySet(),
+    val unsub: Set<DataId>? = emptySet(),
+    val update: Boolean? = false
+)
 
 @Serializable
 data class ExpressionState(val id: DataId, val state: String? = null)
@@ -43,7 +44,23 @@ data class ExpressionState(val id: DataId, val state: String? = null)
 @Serializable
 data class SetEffExpRequest(val ids: List<DataId>, val eff: Int, val exp: Int)
 
+@Serializable
+data class MarkShouldUpdateRequest(val ids: List<DataId>, val shouldUpdate: Boolean)
+
+@Serializable
+data class DeleteExpressions(val ids: List<DataId>)
+
 fun Route.httpRoutes() {
+
+    get("/expression/{id}") {
+        val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
+        val node = ExpressionNetworkImpl.getNode(DataId(id))
+        if (node == null) {
+            call.respond(HttpStatusCode.NotFound)
+        } else {
+            call.respond(node)
+        }
+    }
 
     get("/graph") {
         val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
@@ -144,14 +161,25 @@ fun Route.httpRoutes() {
     }
 
     post("/mark_should_update") {
-        val ids = call.receive<List<DataId>>()
-        ExpressionNetworkImpl.markShouldUpdate(ids)
+        val req = call.receive<MarkShouldUpdateRequest>()
+        ExpressionNetworkImpl.markShouldUpdate(req.ids, req.shouldUpdate)
         call.respond(HttpStatusCode.OK)
     }
 
     post("/rerun") {
         val id = call.receive<TaskId>()
         ExpressionNetworkImpl.rerun(id)
+    }
+
+    get("/upstream_data") {
+        val id: DataId =
+            call.request.queryParameters["id"]?.let { DataId(it) } ?: throw IllegalArgumentException("id is required")
+        call.respond(ExpressionNetworkImpl.allUpstreamNodeBesidesRoot(id))
+    }
+
+    delete ("/expression") {
+        val req = call.receive<DeleteExpressions>()
+        call.respond(ExpressionNetworkImpl.deleteTFDBData(req.ids))
     }
 
 }
@@ -170,6 +198,16 @@ fun Route.adminHttpRoutes() {
                 return@get
             }
             call.respond(HttpStatusCode.OK, ExpressionNetworkImpl.getTasksByDataId(ids))
+        }
+
+        get("/update/graph") {
+            call.respond(ExpressionNetworkImpl.getUpdateGraph())
+        }
+
+        put("/expression/{id}") {
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
+            ExpressionNetworkImpl.forceRun(DataId(id))
+            call.respond(HttpStatusCode.OK)
         }
     }
 }
