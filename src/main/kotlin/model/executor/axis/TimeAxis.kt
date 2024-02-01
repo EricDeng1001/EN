@@ -1,8 +1,17 @@
 package model.executor.axis
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+
 // -------- Time Model -------- //
+@Serializable
 class TimeAxis {}
 
+@Serializable
 enum class Period(val value: Int) {
     D(4840), P(2420), M(20), T(1);
 
@@ -19,7 +28,8 @@ enum class Period(val value: Int) {
     }
 }
 
-open class TimeBounds(var start: Int, var end: Int) : Iterable<Int> {
+@Serializable
+open class TimeBounds(open var start: Int, open var end: Int) : Iterable<Int> {
 
     override fun toString(): String {
         return "[$start-$end)"
@@ -40,7 +50,22 @@ open class TimeBounds(var start: Int, var end: Int) : Iterable<Int> {
     }
 }
 
-class TimeRange(start: Int, end: Int, val period: Period = Period.D) : TimeBounds(start, end) {
+@Serializable(with = TimeRange.TimeRangeSerializer::class)
+class TimeRange(start: Int, end: Int, val period: Period = Period.D) : TimeBounds(
+    start,
+    end
+) {
+    class TimeRangeSerializer() : KSerializer<TimeRange> {
+        override val descriptor: SerialDescriptor = buildClassSerialDescriptor("TimeRange")
+        override fun deserialize(decoder: Decoder): TimeRange {
+            return fromString(decoder.decodeString())
+        }
+
+        override fun serialize(encoder: Encoder, value: TimeRange) {
+            encoder.encodeString(value.toString())
+        }
+    }
+
     init {
         if ((this.end - this.start) % this.period.value != 0) {
             throw Exception("invalid time range param: $start, $end, $period")
@@ -153,6 +178,14 @@ class TimeRange(start: Int, end: Int, val period: Period = Period.D) : TimeBound
             _end += period.value
             return TimeRange(_start, _end, period)
 
+        }
+
+        val regex = "^([\\[(])?([DPMTdpmt0-9]+)\\s?[-,]\\s?([DPMTdpmt0-9]+)([])])?(\\s?/\\s?([DPMTdpmt]))?\$".toRegex()
+        fun fromString(str: String): TimeRange {
+            val match = regex.find(str) ?: throw Exception("invalid time range format: $str")
+            val (ls, start, end, rs, _, period) = match.destructured
+            // todo: 解析是否包含边界
+            return TimeRange(start.toInt(), end.toInt(), Period.valueOf(period))
         }
     }
 

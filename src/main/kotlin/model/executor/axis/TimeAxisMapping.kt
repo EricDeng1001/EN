@@ -1,6 +1,14 @@
 package model.executor.axis
 
+import kotlinx.serialization.Serializable
+import model.ArgName
+import model.Argument
+import model.executor.data.Data
+import model.executor.data.Inputs
+import model.executor.data.Outputs
+
 // -------- Time Axis Mapping -------- //
+@Serializable
 class Mapping<T>(public val src: T, public val dst: T) {
     operator fun component1(): T {
         return src
@@ -20,6 +28,7 @@ class Mapping<T>(public val src: T, public val dst: T) {
  * @param periods: 时间轴的周期
  * @param alignment: 对齐方式，0表示每个unit中的源的尾部和目标尾部是对齐的，为正数表示目标数据尾部向时间轴正方向移动alignment个单位
  */
+@Serializable
 class TimeAxisMapping(var shape: Mapping<Int>, var periods: Mapping<Period>, var alignment: Int, var block: Int = 1) {
     fun shapeM(): Int {
         return shape.src
@@ -141,7 +150,7 @@ class TimeAxisMapping(var shape: Mapping<Int>, var periods: Mapping<Period>, var
          * 从字符串中解析出TimeAxisMapping
          * @param str: format: (4840:4840/1, M->M, 0)
          */
-        fun fromStr(str: String): TimeAxisMapping {
+        fun fromString(str: String): TimeAxisMapping {
             regex.find(str)?.let {
                 val (sm, sn, _, sblock, speriodM, speriodN, salignment) = it.destructured
                 val m = sm.toInt()
@@ -162,9 +171,110 @@ class TimeAxisMapping(var shape: Mapping<Int>, var periods: Mapping<Period>, var
 
 // -------- Time Axis Mapping Rule -------- //
 abstract class TimeAxisMappingRule {
-    abstract fun handle(timeRange: TimeRange): TimeRange
+    abstract fun handle(mapping: TimeAxisMapping, datas: Mapping<Data>, arguments: Map<ArgName, Argument>)
 }
 
-abstract class ParameterMappingRule{
-    abstract fun handle(mapping: TimeAxisMapping)
+abstract class ParameterMappingRule(val name: String) : TimeAxisMappingRule() {
+
+    fun getNamedValue(arguments: Map<ArgName, Argument>): Argument? {
+        return arguments[name]
+    }
+
+}
+
+// -------- 具体的映射规则 -------- //
+
+class AlignmentMappingRule : TimeAxisMappingRule() {
+    override fun handle(mapping: TimeAxisMapping, datas: Mapping<Data>, arguments: Map<ArgName, Argument>) {
+        if (datas.src.meta.period == datas.dst.meta.period) {
+            val srcOffset = datas.src.meta.offset
+            val dstOffset = datas.dst.meta.offset
+            if (srcOffset > dstOffset) {
+                mapping.alignment = datas.src.meta.period.value
+            }
+        }
+    }
+}
+
+class UpSamplingMethodMappingRule : ParameterMappingRule("method") {
+    override fun handle(mapping: TimeAxisMapping, datas: Mapping<Data>, arguments: Map<ArgName, Argument>) {
+        if (datas.src.meta.period > datas.dst.meta.period) {
+            mapping.setUnitN(datas.src.meta.period.value)
+        }
+        val value = this.getNamedValue(arguments) ?: throw Exception("method is not set")
+        if ("forward" == value.value) {
+            mapping.alignment = datas.src.meta.period.value
+        }
+    }
+}
+
+class WindowsSizeMappingRule : ParameterMappingRule("window_size") {
+    override fun handle(mapping: TimeAxisMapping, datas: Mapping<Data>, arguments: Map<ArgName, Argument>) {
+        val value = this.getNamedValue(arguments)?.value?.toInt() ?: 1
+        mapping.setShapeM(value)
+    }
+}
+
+class StepMappingRule : ParameterMappingRule("step") {
+    override fun handle(mapping: TimeAxisMapping, datas: Mapping<Data>, arguments: Map<ArgName, Argument>) {
+        val value = this.getNamedValue(arguments)?.value?.toInt() ?: 1
+        mapping.setUnitN(value * mapping.periods.src.value)
+    }
+}
+
+class ReduceMappingRule : ParameterMappingRule("reduce") {
+    override fun handle(mapping: TimeAxisMapping, datas: Mapping<Data>, arguments: Map<ArgName, Argument>) {
+        val value = this.getNamedValue(arguments)?.value.toBoolean() ?: return // todo: boolean string to boolean method
+        if (!value) {
+            if (datas.src.meta.period != datas.dst.meta.period) {
+                throw Exception("input period must be equal to output period, when reduce is false")
+            }
+            val step = this.getNamedValue(arguments)?.value?.toInt() ?: 1
+            val windowSize = this.getNamedValue(arguments)?.value?.toInt() ?: 1
+            if (step != windowSize) {
+                throw Exception("step must be equal to window_size, when reduce is false")
+            }
+        }
+
+    }
+}
+
+
+// -------- Time Axis Mapping Rule Table -------- //
+class TimeAxisMappingRuleTable {
+
+    companion object {
+        var ruleChain = listOf(
+            AlignmentMappingRule(),
+            WindowsSizeMappingRule(),
+            StepMappingRule(),
+            UpSamplingMethodMappingRule(),
+            ReduceMappingRule(),
+        )
+
+        fun generateMapping(
+            periods: Mapping<Period>, datas: Mapping<Data>, arguments: Map<ArgName, Argument>
+        ): TimeAxisMapping {
+            val mapping = TimeAxisMapping(shape = Mapping(1, 1), periods = periods, alignment = 0)
+            for (rule in ruleChain) {
+                rule.handle(mapping, datas, arguments)
+            }
+            return mapping
+        }
+
+        fun generateMappings(
+            inputs: Inputs, outputs: Outputs, arguments: Map<ArgName, Argument>
+        ): List<TimeAxisMapping> {
+            val output = outputs.first()
+            val mappings = mutableListOf<TimeAxisMapping>()
+            for (data in inputs) {
+                val d = data.data() ?: continue
+                val mapping = generateMapping(Mapping(d.meta.period, output.meta.period), Mapping(d, output), arguments)
+                mappings.add(mapping)
+            }
+            return mappings
+        }
+
+    }
+
 }
