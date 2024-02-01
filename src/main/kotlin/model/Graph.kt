@@ -150,7 +150,7 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
 data class UpdateGraph(val nodes: List<Node>) {
 
     fun debugView(ignoreSingle: Boolean): GraphDebugView {
-        val es = HashMap<DataId, DataId>()
+        val es = HashSet<Pair<DataId, DataId>>()
         val ns = HashSet<String>()
 
         for (node in nodes) {
@@ -165,7 +165,7 @@ data class UpdateGraph(val nodes: List<Node>) {
                     for (i in input.ids) {
                         ns.add(i.str)
                         for (output in n.expression.outputs) {
-                            es[i] = output
+                            es.add(Pair(i, output))
                             ns.add(output.str)
                         }
                     }
