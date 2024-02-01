@@ -1,4 +1,4 @@
-url: "mongodb://root:techfinsd@172.17.101.11:27017/?authMechanism=SCRAM-SHA-1"
+url: "mongodb://root:techfinsd@172.18.10.14:27017/?authMechanism=SCRAM-SHA-1"
 default-database: "en"
 max-connection-wait-time-seconds: 10
 max-connection-pool-size: 10
