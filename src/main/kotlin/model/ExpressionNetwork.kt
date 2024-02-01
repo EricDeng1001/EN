@@ -663,6 +663,7 @@ abstract class ExpressionNetwork(
             logger.debug("logic delete ids num: {} deleted num: {}", ids.size, successDeletedNum)
         } catch (e: Exception) {
             logger.error("logic delete ids error: $e")
+            throw e
         }
 
         return needDeletedIds.mapNotNull {

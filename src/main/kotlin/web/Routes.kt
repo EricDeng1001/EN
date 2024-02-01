@@ -179,8 +179,7 @@ fun Route.httpRoutes() {
 
     delete ("/expression") {
         val req = call.receive<DeleteExpressions>()
-        ExpressionNetworkImpl.deleteTFDBData(req.ids)
-        call.respond(HttpStatusCode.OK)
+        call.respond(ExpressionNetworkImpl.deleteTFDBData(req.ids))
     }
 
 }
