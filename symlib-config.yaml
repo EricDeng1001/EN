@@ -1,5 +1,5 @@
 http: true
-host: "172.18.10.64"
+host: "172.17.101.63"
 port: 8080
 url:
   get-symbol: "/symbol/{symbol_id}"
