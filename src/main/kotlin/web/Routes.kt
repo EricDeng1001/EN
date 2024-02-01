@@ -201,7 +201,8 @@ fun Route.adminHttpRoutes() {
         }
 
         get("/update/graph") {
-            call.respond(ExpressionNetworkImpl.getUpdateGraph())
+            val ignoreSingle = call.request.queryParameters["ignore_single"]?.toBoolean() ?: true
+            call.respond(ExpressionNetworkImpl.getUpdateGraph(ignoreSingle))
         }
 
         put("/expression/{id}") {
