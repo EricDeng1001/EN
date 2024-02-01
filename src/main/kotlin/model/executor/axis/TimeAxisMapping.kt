@@ -244,7 +244,7 @@ class ReduceMappingRule : ParameterMappingRule("reduce") {
 class TimeAxisMappingRuleTable {
 
     companion object {
-        var ruleChain = listOf(
+        private var ruleChain = listOf(
             AlignmentMappingRule(),
             WindowsSizeMappingRule(),
             StepMappingRule(),

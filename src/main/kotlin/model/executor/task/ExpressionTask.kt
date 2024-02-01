@@ -12,6 +12,7 @@ import model.executor.data.Outputs
 @Serializable
 class ExpressionTask(
     val taskId: String,
+    val funcId: String,
     val inputs: Inputs,
     val outputs: Outputs,
     val timeRange: TimeRange,
