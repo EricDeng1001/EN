@@ -635,9 +635,9 @@ abstract class ExpressionNetwork(
         return taskRepository.getTaskByDataIdAndTo(id, to)
     }
 
-    suspend fun getUpdateGraph(): GraphDebugView {
+    suspend fun getUpdateGraph(ignoreSingle: Boolean): GraphDebugView {
         val nodes = nodeRepository.queryByShouldUpdate(true)
-        return UpdateGraph(nodes).debugView()
+        return UpdateGraph(nodes).debugView(ignoreSingle)
     }
 
     suspend fun setEff0Exp0(ids: List<DataId>, eff: Pointer, exp: Pointer) {
