@@ -10,6 +10,7 @@ import kotlinx.serialization.decodeFromString
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
@@ -18,7 +19,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 @Serializable
-data class WorkerConfig(val http: Boolean, val host: String, val port: Int, val url: Url) {
+data class WorkerConfig(val http: Boolean, val host: String, val port: Int, val url: Url, val connectTimeoutMillis: Long,val requestTimeoutMillis: Long ) {
     @Serializable
     data class Url(
         val getExpressDataInfo: String,
@@ -37,6 +38,11 @@ object HttpWorker : Worker {
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json(from = DefaultJson) { ignoreUnknownKeys = true })
+        }
+
+        install(HttpTimeout) {
+            connectTimeoutMillis = config.connectTimeoutMillis
+            requestTimeoutMillis = config.requestTimeoutMillis
         }
     }
 
