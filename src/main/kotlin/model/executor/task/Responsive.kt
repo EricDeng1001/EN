@@ -3,6 +3,8 @@ package model.executor.task
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
@@ -21,23 +23,31 @@ abstract class Callback<T>(val priority: Int = 0, val permanent: Boolean = false
     abstract fun call(data: T)
 
     companion object {
-        fun <T> addCallback(callback: Callback<T>, vararg callbacks: MutableList<Callback<T>>) {
+        fun <T> addCallback(callback: Callback<T>, callbacks: List<MutableList<Callback<T>>>) {
             for (c in callbacks) {
-                c.add(callback)
-                c.sortBy { it.priority }
+                addCallback(callback, c)
             }
+        }
 
+        fun <T> addCallback(callback: Callback<T>, callbacks: MutableList<Callback<T>>) {
+            callbacks.add(callback)
+            callbacks.sortBy { it.priority }
         }
     }
 }
 
-open class StatusResponsive<T>(
-    val name: String,
-    val stateCallbacks: ConcurrentHashMap<Status, MutableList<Callback<Status>>>,
-    val permanentStateCallbacks: ConcurrentHashMap<Status, MutableList<Callback<Status>>>,
-    val mutex: Mutex = Mutex()
-) {
+@Serializable
+open class StatusResponsive(val name: String = "") {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
+
+    @Transient
+    val stateCallbacks: ConcurrentHashMap<Status, MutableList<Callback<Status>>> = ConcurrentHashMap()
+
+    @Transient
+    val permanentStateCallbacks: ConcurrentHashMap<Status, MutableList<Callback<Status>>> = ConcurrentHashMap()
+
+    @Transient
+    val mutex: Mutex = Mutex()
 
     init {
         for (s in Status.entries) {
@@ -46,15 +56,13 @@ open class StatusResponsive<T>(
         }
     }
 
-    constructor(name: String = "") : this(name, ConcurrentHashMap(), ConcurrentHashMap())
 
-    suspend fun addStatusCallback(status: Status, callback: Callback<Status>) {
+    suspend fun addStatusCallback(callback: Callback<Status>, vararg status: Status) {
         mutex.withLock {
             if (callback.permanent) {
-                permanentStateCallbacks
-                Callback.addCallback(callback, permanentStateCallbacks[status]!!)
+                Callback.addCallback(callback, status.map { permanentStateCallbacks[it]!! })
             } else {
-                Callback.addCallback(callback, stateCallbacks[status]!!)
+                Callback.addCallback(callback, status.map { stateCallbacks[it]!! })
             }
         }
     }

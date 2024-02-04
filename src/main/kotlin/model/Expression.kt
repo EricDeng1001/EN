@@ -32,7 +32,7 @@ data class Expression(
             inputs = emptyList(),
             outputs = listOf(id),
             funcId = FuncId.Noop,
-            dataflow =  "",
+            dataflow = "",
             arguments = emptyMap()
         )
     }

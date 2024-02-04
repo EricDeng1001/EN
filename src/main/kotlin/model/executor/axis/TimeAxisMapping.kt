@@ -9,7 +9,7 @@ import model.executor.data.Outputs
 
 // -------- Time Axis Mapping -------- //
 @Serializable
-class Mapping<T>(public val src: T, public val dst: T) {
+class Mapping<T>(val src: T, val dst: T) {
     operator fun component1(): T {
         return src
     }
@@ -18,6 +18,9 @@ class Mapping<T>(public val src: T, public val dst: T) {
         return dst
     }
 }
+
+
+class SplitTimeRangeError(message: String = "split time range error") : Exception(message)
 
 /**
  * 时间轴映射规则，源轴 -> 目标轴。
@@ -82,6 +85,20 @@ class TimeAxisMapping(var shape: Mapping<Int>, var periods: Mapping<Period>, var
 
     fun mn(): Mapping<Int> {
         return Mapping(m(), n())
+    }
+
+    fun splitDstTimeRange(timeRange: TimeRange) {
+        if (timeRange.length() == 0) {
+            throw TimeRangeZeroLengthError()
+        }
+        if (timeRange.period != this.periods.dst) {
+            throw SplitTimeRangeError(
+                "time_range($timeRange) period must be equal to dst periods: ${
+                    this.periods.dst.name
+                }"
+            )
+        }
+        // todo
     }
 
     fun mapping(timeRange: TimeRange) {
@@ -253,7 +270,9 @@ class TimeAxisMappingRuleTable {
         )
 
         fun generateMapping(
-            periods: Mapping<Period>, datas: Mapping<Data>, arguments: Map<ArgName, Argument>
+            periods: Mapping<Period>,
+            datas: Mapping<Data>,
+            arguments: Map<ArgName, Argument>
         ): TimeAxisMapping {
             val mapping = TimeAxisMapping(shape = Mapping(1, 1), periods = periods, alignment = 0)
             for (rule in ruleChain) {
@@ -262,17 +281,13 @@ class TimeAxisMappingRuleTable {
             return mapping
         }
 
-        fun generateMappings(
-            inputs: Inputs, outputs: Outputs, arguments: Map<ArgName, Argument>
-        ): List<TimeAxisMapping> {
+        fun generateMappings(inputs: Inputs, outputs: Outputs, arguments: Map<ArgName, Argument>) {
             val output = outputs.first()
-            val mappings = mutableListOf<TimeAxisMapping>()
             for (data in inputs) {
                 val d = data.data() ?: continue
                 val mapping = generateMapping(Mapping(d.meta.period, output.meta.period), Mapping(d, output), arguments)
-                mappings.add(mapping)
+                data.timeAxisMapping = mapping
             }
-            return mappings
         }
 
     }

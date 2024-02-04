@@ -213,3 +213,8 @@ class TimeRange(start: Int, end: Int, val period: Period = Period.D) : TimeBound
 
 }
 
+
+class TimeRangeZeroLengthError : Exception {
+    constructor() : super("time range length is zero")
+    constructor(message: String) : super(message)
+}

@@ -4,7 +4,7 @@ enum class Status {
     inited, pending, running, success, failed,
 }
 
-abstract class Stateful {
+interface Stateful {
     abstract fun status(): Status
 
     companion object {
