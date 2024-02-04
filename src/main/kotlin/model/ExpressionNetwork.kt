@@ -17,7 +17,7 @@ abstract class ExpressionNetwork(
     private val messageQueue: MessageQueue,
     private val performanceService: PerformanceService,
     private val symbolLibraryService: SymbolLibraryService,
-    private val worker: Worker
+    private val dataInfo: DataInfo
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
@@ -685,7 +685,7 @@ abstract class ExpressionNetwork(
             return node
         }
         try {
-            val info = worker.getExpressDataInfo(id, start, end)
+            val info = dataInfo.getExpressDataInfo(id, start, end)
             node.info = info
             node = nodeRepository.save(node)
         } catch (e: Exception) {

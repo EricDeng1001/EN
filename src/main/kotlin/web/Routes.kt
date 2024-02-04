@@ -57,7 +57,11 @@ fun Route.httpRoutes() {
         val start = call.request.queryParameters["start"]
         val end = call.request.queryParameters["end"]
         val needCal = call.request.queryParameters["need_cal"]?.let { true } ?:false
-        call.respond(ExpressionNetworkImpl.getNodeWithInfo(DataId(id), start, end, needCal))
+        try {
+            call.respond(ExpressionNetworkImpl.getNodeWithInfo(DataId(id), start, end, needCal))
+        }catch (e:Exception){
+            throw e
+        }
     }
 
     get("/graph") {
