@@ -16,7 +16,8 @@ abstract class ExpressionNetwork(
     private val executor: Executor,
     private val messageQueue: MessageQueue,
     private val performanceService: PerformanceService,
-    private val symbolLibraryService: SymbolLibraryService
+    private val symbolLibraryService: SymbolLibraryService,
+    private val worker: Worker
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
     private val states: MutableMap<NodeId, NodeState> = ConcurrentHashMap()
@@ -29,7 +30,7 @@ abstract class ExpressionNetwork(
     private val dispatcher = newFixedThreadPoolContext(Runtime.getRuntime().availableProcessors(), "en-background")
     private val backgroundTasks = CoroutineScope(dispatcher)
 
-    private suspend fun getNode(id: DataId): Node? {
+    suspend fun getNode(id: DataId): Node? {
         return nodeRepository.queryByOutput(id)
     }
 
@@ -481,7 +482,13 @@ abstract class ExpressionNetwork(
 
     private suspend fun saveExpression(expression: Expression): List<DataId> {
         val queryByExpression = nodeRepository.queryByExpression(expression)
-        if (queryByExpression != null) return queryByExpression.expression.outputs
+        if (queryByExpression != null) {
+            if (expression.generated == false && queryByExpression.expression.generated == true) {
+                queryByExpression.expression.generated = false
+                nodeRepository.save(queryByExpression)
+            }
+            return queryByExpression.expression.outputs
+        }
 
         for (input in expression.inputs) {
             for (id in input.ids) {
@@ -501,7 +508,8 @@ abstract class ExpressionNetwork(
             expectedPtr = Pointer.ZERO,
             expression = expression,
             valid = true,
-            depth = findDepth(expression)
+            depth = findDepth(expression),
+            info = ""
         )
         nodeRepository.save(node)
         return result
@@ -603,7 +611,7 @@ abstract class ExpressionNetwork(
 
     private suspend fun pushFinished(node: Node) {
         for (id in node.ids()) {
-            messageQueue.pushRunFinish(id)
+            messageQueue.pushRunFinish(id, node.effectivePtr)
         }
     }
 
@@ -627,6 +635,11 @@ abstract class ExpressionNetwork(
         return taskRepository.getTaskByDataIdAndTo(id, to)
     }
 
+    suspend fun getUpdateGraph(ignoreSingle: Boolean): GraphDebugView {
+        val nodes = nodeRepository.queryByShouldUpdate(true)
+        return UpdateGraph(nodes).debugView(ignoreSingle)
+    }
+
     suspend fun setEff0Exp0(ids: List<DataId>, eff: Pointer, exp: Pointer) {
         val res = mutableListOf<Node>()
         for (id in ids) {
@@ -644,5 +657,43 @@ abstract class ExpressionNetwork(
             updateRootSafeAsync(node)
         }
     }
+
+    suspend fun deleteTFDBData(ids: List<DataId>): List<DataId> {
+        val needDeletedIds = ids.mapNotNull { getNode(it) }.filter { it.expression.generated == true }
+        try {
+            val successDeletedNum = nodeRepository.logicDelete(needDeletedIds.map { it.id })
+            logger.debug("logic delete ids num: {} deleted num: {}", ids.size, successDeletedNum)
+        } catch (e: Exception) {
+            logger.error("logic delete ids error: $e")
+            throw e
+        }
+
+        return needDeletedIds.mapNotNull {
+            try {
+                executor.deleteData(it.expression.outputs[0])
+                return@mapNotNull it.expression.outputs[0]
+            } catch (e: Exception) {
+                logger.error("delete tfdb data $it error: $e")
+                return@mapNotNull null
+            }
+        }
+    }
+
+    suspend fun getNodeWithInfo(id: DataId, start: String?, end: String?, needCal: Boolean = false): Node {
+        var node = nodeRepository.queryByOutput(id) ?: throw Error("node $id is null")
+        if (!node.info.isNullOrBlank() && !needCal) {
+            return node
+        }
+        try {
+            val info = worker.getExpressDataInfo(id, start, end)
+            node.info = info
+            node = nodeRepository.save(node)
+        } catch (e: Exception) {
+            logger.error("getExpressDataInfo $id error: $e")
+            throw e
+        }
+        return node
+    }
+
 }
 

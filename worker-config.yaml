@@ -1,0 +1,7 @@
+http: true
+host: "127.0.0.1"
+port: 50053
+request-timeout-millis: 60000
+connect-timeout-millis: 60000
+url:
+  get-express-data-info: "/executor_daemon/express_info/{data_id}"

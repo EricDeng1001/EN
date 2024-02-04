@@ -13,6 +13,7 @@ object ExpressionNetworkImpl : ExpressionNetwork(
     WebSocketNotification,
     HttpPerformanceService,
     HttpSymbolLibrary,
+    HttpWorker,
 ) {
 
 }

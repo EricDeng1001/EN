@@ -59,7 +59,7 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
         for (node in nodes) {
             val ex = node.expression
 
-            if (ex.isRoot()){
+            if (ex.isRoot()) {
                 continue
             }
 
@@ -79,7 +79,7 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
         for (node in nodes) {
             val ex = node.expression
 
-            if (ex.isRoot()){
+            if (ex.isRoot()) {
                 continue
             }
 
@@ -143,5 +143,77 @@ data class Graph(val nodes: List<Node>, val inputs: List<Node>) {
         }.toList()
 
         return GraphDebugView(ns + os, es)
+    }
+}
+
+@Serializable
+data class UpdateGraph(val nodes: List<Node>) {
+
+    fun debugView(ignoreSingle: Boolean): GraphDebugView {
+        val es = HashSet<Pair<DataId, DataId>>()
+        val ns = HashSet<String>()
+
+        for (node in nodes) {
+            val ex = node.expression
+
+            if (ex.isRoot()) {
+                continue
+            }
+
+            for (n in nodes) {
+                for (input in n.expression.inputs) {
+                    for (i in input.ids) {
+                        ns.add(i.str)
+                        for (output in n.expression.outputs) {
+                            es.add(Pair(i, output))
+                            ns.add(output.str)
+                        }
+                    }
+                }
+            }
+        }
+
+        val resNodes = if (ignoreSingle) {
+            nodes.filter { ns.contains(it.id.str) }.map {
+                GraphDebugView.GraphDebugNode(
+                    GraphDebugView.GraphDebugNode.Id(it.id.str),
+                    "data",
+                    it.id.str,
+                    GraphDebugView.GraphDebugNode.DebugInfo(
+                        it.valid,
+                        it.effectivePtr.value,
+                        it.expectedPtr.value,
+                        it.isPerfCalculated,
+                        it.mustCalculate,
+                        it.shouldUpdate,
+                        it.expression
+                    )
+                )
+            }.toList()
+        } else {
+            nodes.map {
+                GraphDebugView.GraphDebugNode(
+                    GraphDebugView.GraphDebugNode.Id(it.id.str),
+                    "data",
+                    it.id.str,
+                    GraphDebugView.GraphDebugNode.DebugInfo(
+                        it.valid,
+                        it.effectivePtr.value,
+                        it.expectedPtr.value,
+                        it.isPerfCalculated,
+                        it.mustCalculate,
+                        it.shouldUpdate,
+                        it.expression
+                    )
+                )
+            }.toList()
+        }
+
+        return GraphDebugView(resNodes, es.map { (k, v) ->
+            GraphDebugView.GraphDebugEdge(
+                GraphDebugView.GraphDebugNode.Id(k.str), GraphDebugView
+                    .GraphDebugNode.Id(v.str)
+            )
+        })
     }
 }

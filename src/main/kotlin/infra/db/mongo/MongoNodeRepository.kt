@@ -3,6 +3,7 @@ package infra.db.mongo
 import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.ReplaceOneModel
 import com.mongodb.client.model.ReplaceOptions
+import com.mongodb.client.model.Updates
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -21,7 +22,8 @@ data class NodeDO(
     val isPerfCalculated: Boolean? = null,
     val mustCalculate: Boolean? = null,
     val shouldUpdate: Boolean? = null,
-    var depth: Int? = null
+    var depth: Int? = null,
+    var info: String? = null
 ) {
     fun toModel(): Node {
         return Node(
@@ -32,7 +34,8 @@ data class NodeDO(
             isPerfCalculated = isPerfCalculated ?: false,
             mustCalculate = mustCalculate ?: false,
             shouldUpdate = shouldUpdate ?: false,
-            depth = depth ?: 0
+            depth = depth ?: 0,
+            info = info ?: ""
         )
     }
 
@@ -54,6 +57,7 @@ data class NodeDO(
         val outputs: List<String>,
         val funcId: String,
         val dataflow: String,
+        val generated: Boolean? = false,
         val arguments: TreeMap<String, ArgumentDO>
     ) {
 
@@ -69,6 +73,7 @@ data class NodeDO(
                 outputs.map { DataId(it) },
                 FuncId(funcId),
                 dataflow,
+                generated,
                 arguments.map { (k, v) -> k to v.toModel() }.toMap()
             )
         }
@@ -86,7 +91,8 @@ fun Node.toMongo(): NodeDO {
         isPerfCalculated,
         mustCalculate = mustCalculate,
         shouldUpdate = shouldUpdate,
-        depth = depth
+        depth = depth,
+        info = info
     )
 }
 
@@ -104,6 +110,7 @@ fun Expression.toMongo(): NodeDO.ExpressionDO {
         outputs.map { it.str },
         funcId.value,
         dataflow,
+        generated,
         arguments.map { (k, v) -> k to v.toMongo() }.toMap(TreeMap())
     )
 }
@@ -155,6 +162,12 @@ object MongoNodeRepository : NodeRepository {
         ).map { it.toModel() }.toList()
     }
 
+    override suspend fun queryByShouldUpdate(shouldUpdate: Boolean): List<Node> {
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            eq(NodeDO::shouldUpdate.name, shouldUpdate)
+        ).map { it.toModel() }.toList()
+    }
+
     override suspend fun queryAllRoot(): List<Node> {
         return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
             size("${NodeDO::expression.name}.${NodeDO.ExpressionDO::inputsFlat.name}", 0)
@@ -195,6 +208,17 @@ object MongoNodeRepository : NodeRepository {
             ).firstOrNull()
         }
 
+    }
+
+    override suspend fun logicDelete(ids: List<NodeId>): Long {
+        val query = `in`(NodeDO::id.name, ids.map { it.str }.toList())
+        val updates = Updates.combine(
+            Updates.set(NodeDO::effectivePtr.name, 0),
+            Updates.set(NodeDO::expectedPtr.name, 0)
+        )
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).updateMany(
+            query, updates
+        ).modifiedCount
     }
 
 }

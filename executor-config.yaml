@@ -1,6 +1,9 @@
 http: true
 host: "172.17.100.66"
 port: 50051
+request-timeout-milliseconds: 60000
+connect-timeout-milliseconds: 60000
 url:
   run: "/executor/expr"
   try-cancel: "/cancel/{id}"
+  delete-data: "/database/source/{data_name}"

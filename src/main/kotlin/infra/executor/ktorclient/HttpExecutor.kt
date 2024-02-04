@@ -19,10 +19,17 @@ import model.*
 import java.io.File
 
 @Serializable
-data class Url(val run: String, val tryCancel: String)
+data class Url(val run: String, val tryCancel: String, val deleteData: String)
 
 @Serializable
-data class ExecutorConfig(val http: Boolean, val host: String, val port: Int, val url: Url)
+data class ExecutorConfig(
+    val http: Boolean,
+    val host: String,
+    val port: Int,
+    val url: Url,
+    val requestTimeoutMilliseconds: Long? = (60 * 1000),
+    val connectTimeoutMilliseconds: Long? = (60 * 1000)
+)
 
 @Serializable
 data class RunRequestBody(
@@ -54,8 +61,8 @@ object HttpExecutor : Executor {
             json(Json(from = DefaultJson) { ignoreUnknownKeys = true })
         }
         install(HttpTimeout) {
-            requestTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
-            connectTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
+            requestTimeoutMillis = config.requestTimeoutMilliseconds
+            connectTimeoutMillis = config.connectTimeoutMilliseconds
         }
     }
 
@@ -99,5 +106,21 @@ object HttpExecutor : Executor {
             throw Exception("tryCancel failed: ${response.status}")
         }
         val body = response.body<TryCancelResponseBody>()
+    }
+
+    override suspend fun deleteData(id: DataId) {
+        val url = URLBuilder(
+            protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
+            host = config.host,
+            port = config.port,
+        ).apply {
+            path(config.url.deleteData.replace("{data_name}", id.str))
+            parameters.append("confirm", "true")
+        }.build().toString()
+
+        val response = client.delete(url)
+        if (response.status != HttpStatusCode.OK) {
+            throw Exception("deleteData failed: ${response.status}")
+        }
     }
 }

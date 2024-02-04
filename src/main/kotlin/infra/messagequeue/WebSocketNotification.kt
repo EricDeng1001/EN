@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import model.DataId
 import model.MessageQueue
 import model.NodeState
+import model.Pointer
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import web.WebSocketRequest
@@ -12,13 +13,16 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 
 @Serializable
-data class SendMessage(val id: DataId, val status: String, val reason: String = "");
+data class SendMessage(val id: DataId, val status: String, val reason: String = "", val effectivePtr: Int? = null);
 
 object WebSocketNotification : MessageQueue {
 
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass.name)
 
     val connections = ConcurrentHashMap<WebSocketServerSession, CopyOnWriteArraySet<DataId>>()
+
+    val updateConnections = CopyOnWriteArraySet<WebSocketServerSession>()
+
     override suspend fun pushRunning(id: DataId) {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
@@ -43,11 +47,11 @@ object WebSocketNotification : MessageQueue {
         }
     }
 
-    override suspend fun pushRunFinish(id: DataId) {
+    override suspend fun pushRunFinish(id: DataId, effectivePtr: Pointer) {
         connections.forEach { (session, dataIds) ->
             if (dataIds.contains(id)) {
                 try {
-                    session.sendSerialized(SendMessage(id, NodeState.FINISHED.value))
+                    session.sendSerialized(SendMessage(id, NodeState.FINISHED.value, effectivePtr = effectivePtr.value))
                 } catch (e: Exception) {
                     logger.error("Error sending finish message to client: $e")
                 }
@@ -69,11 +73,17 @@ object WebSocketNotification : MessageQueue {
 }
 
 fun WebSocketNotification.registerConnection(session: WebSocketServerSession, request: WebSocketRequest) {
-    val subs = connections.computeIfAbsent(session) { CopyOnWriteArraySet() }
-    subs.addAll(request.sub ?: emptySet())
-    subs.removeAll((request.unsub ?: emptySet()).toSet())
+    if (request.update != null && request.update) {
+        updateConnections.add(session)
+    } else {
+        val subs = connections.computeIfAbsent(session) { CopyOnWriteArraySet() }
+        subs.addAll(request.sub ?: emptySet())
+        subs.removeAll((request.unsub ?: emptySet()).toSet())
+
+    }
 }
 
 fun WebSocketNotification.unregisterConnection(session: WebSocketServerSession) {
     connections.remove(session)
+    updateConnections.remove(session)
 }

@@ -22,7 +22,8 @@ data class Node(
     var mustCalculate: Boolean = false,
     var isPerfCalculated: Boolean = false,
     var shouldUpdate: Boolean = false,
-    var depth: Int = 0
+    var depth: Int = 0,
+    var info: String?
 ) {
 
     @Serializable
@@ -44,7 +45,8 @@ data class Node(
             effectivePtr = Pointer.ZERO,
             expectedPtr = Pointer.ZERO,
             depth = 0,
-            shouldUpdate = true
+            shouldUpdate = true,
+            info = null
         )
     }
 }

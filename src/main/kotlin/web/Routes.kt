@@ -13,9 +13,6 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import model.*
 import org.slf4j.LoggerFactory
@@ -35,7 +32,11 @@ data class RunSuccessResponse(val taskId: String)
 data class RunErrorResponse(val taskId: String, val message: String, val type: String)
 
 @Serializable
-data class WebSocketRequest(val sub: Set<DataId>? = emptySet(), val unsub: Set<DataId>? = emptySet())
+data class WebSocketRequest(
+    val sub: Set<DataId>? = emptySet(),
+    val unsub: Set<DataId>? = emptySet(),
+    val update: Boolean? = false
+)
 
 @Serializable
 data class ExpressionState(val id: DataId, val state: String? = null)
@@ -46,7 +47,18 @@ data class SetEffExpRequest(val ids: List<DataId>, val eff: Int, val exp: Int)
 @Serializable
 data class MarkShouldUpdateRequest(val ids: List<DataId>, val shouldUpdate: Boolean)
 
+@Serializable
+data class DeleteExpressions(val ids: List<DataId>)
+
 fun Route.httpRoutes() {
+
+    get("/expression/{id}") {
+        val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
+        val start = call.request.queryParameters["start"]
+        val end = call.request.queryParameters["end"]
+        val needCal = call.request.queryParameters["need_cal"]?.let { true } ?:false
+        call.respond(ExpressionNetworkImpl.getNodeWithInfo(DataId(id), start, end, needCal))
+    }
 
     get("/graph") {
         val ids: List<DataId> = call.request.queryParameters.getAll("id")?.map { DataId(it) }?.toList()
@@ -163,6 +175,11 @@ fun Route.httpRoutes() {
         call.respond(ExpressionNetworkImpl.allUpstreamNodeBesidesRoot(id))
     }
 
+    delete("/expression") {
+        val req = call.receive<DeleteExpressions>()
+        call.respond(ExpressionNetworkImpl.deleteTFDBData(req.ids))
+    }
+
 }
 
 fun fib(n: Int): Int {
@@ -179,6 +196,17 @@ fun Route.adminHttpRoutes() {
                 return@get
             }
             call.respond(HttpStatusCode.OK, ExpressionNetworkImpl.getTasksByDataId(ids))
+        }
+
+        get("/update/graph") {
+            val ignoreSingle = call.request.queryParameters["ignore_single"]?.toBoolean() ?: true
+            call.respond(ExpressionNetworkImpl.getUpdateGraph(ignoreSingle))
+        }
+
+        put("/expression/{id}") {
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("id is required")
+            ExpressionNetworkImpl.forceRun(DataId(id))
+            call.respond(HttpStatusCode.OK)
         }
     }
 }
