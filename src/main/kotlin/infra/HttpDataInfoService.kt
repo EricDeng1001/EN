@@ -46,7 +46,7 @@ object HttpDataInfo : DataInfo {
         }
     }
 
-    override suspend fun getExpressDataInfo(id: DataId, start: String?, end: String?): String {
+    override suspend fun getExpressDataInfo(id: DataId, start: String?, end: String?, needPerf: String?): String {
         val url = URLBuilder(
             protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
             host = config.host,
@@ -59,6 +59,7 @@ object HttpDataInfo : DataInfo {
             url {
                 parameters.append("start", start.orEmpty())
                 parameters.append("end", end.orEmpty())
+                parameters.append("need_perf", needPerf.orEmpty())
             }
         }
 
