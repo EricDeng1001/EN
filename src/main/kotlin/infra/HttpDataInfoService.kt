@@ -19,7 +19,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 @Serializable
-data class WorkerConfig(val http: Boolean, val host: String, val port: Int, val url: Url, val connectTimeoutMillis: Long,val requestTimeoutMillis: Long ) {
+data class DataInfoConfig(val http: Boolean, val host: String, val port: Int, val url: Url, val connectTimeoutMillis: Long,val requestTimeoutMillis: Long ) {
     @Serializable
     data class Url(
         val getExpressDataInfo: String,
@@ -27,13 +27,13 @@ data class WorkerConfig(val http: Boolean, val host: String, val port: Int, val 
 }
 
 
-object HttpWorker : Worker {
+object HttpDataInfo : DataInfo {
 
     private val config = Yaml(
         configuration = YamlConfiguration(
             strictMode = false, yamlNamingStrategy = YamlNamingStrategy.KebabCase
         )
-    ).decodeFromString<WorkerConfig>(File("worker-config.yaml").readText())
+    ).decodeFromString<DataInfoConfig>(File("data-info-config.yaml").readText())
 
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
@@ -46,7 +46,7 @@ object HttpWorker : Worker {
         }
     }
 
-    override suspend fun getExpressDataInfo(id: DataId, start: String?, end: String?): String {
+    override suspend fun getExpressDataInfo(id: DataId, start: String?, end: String?, needPerf: String?): String {
         val url = URLBuilder(
             protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
             host = config.host,
@@ -59,11 +59,12 @@ object HttpWorker : Worker {
             url {
                 parameters.append("start", start.orEmpty())
                 parameters.append("end", end.orEmpty())
+                parameters.append("need_perf", needPerf.orEmpty())
             }
         }
 
         if (response.status != HttpStatusCode.OK) {
-            throw Exception("get data info from worker failed: ${response.status} -> ${response.body<String>()}")
+            throw Exception("get data info from DataInfo failed: ${response.status} -> ${response.body<String>()}")
         }
 
         return response.body<String>()
