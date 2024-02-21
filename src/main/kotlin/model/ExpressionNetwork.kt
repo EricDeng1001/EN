@@ -274,7 +274,7 @@ abstract class ExpressionNetwork(
 
     private fun getPreTimePointer(pointer: Pointer, offset: Int, freq: Int): Pointer {
         val n = ((pointer.value - offset) / freq)
-        if (n == 0) {
+        if (n <= 0) {
             return Pointer(0)
         }
         val preTimePoint = n * freq + offset
