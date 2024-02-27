@@ -705,5 +705,10 @@ abstract class ExpressionNetwork(
         return node
     }
 
+    suspend fun allGenerated(): List<DataId> {
+        val nodes = nodeRepository.queryAllGenerated()
+        return nodes.map { it.expression.outputs[0] }.toList()
+    }
+
 }
 

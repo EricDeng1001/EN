@@ -221,4 +221,16 @@ object MongoNodeRepository : NodeRepository {
         ).modifiedCount
     }
 
+    override suspend fun queryAllGenerated(): List<Node> {
+        return MongoConnection.getCollection<NodeDO>(NODES_TABLE).find<NodeDO>(
+            and(
+                listOf(
+                    eq("${NodeDO::expression.name}.${NodeDO.ExpressionDO::generated.name}", true),
+                    gt(NodeDO::effectivePtr.name, 0),
+                    gt(NodeDO::expectedPtr.name, 0),
+                )
+            )
+        ).map { it.toModel() }.toList()
+    }
+
 }

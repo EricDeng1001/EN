@@ -15,5 +15,5 @@ interface NodeRepository {
     suspend fun saveAll(nodes: Iterable<Node>)
     suspend fun get(id: NodeId): Node?
     suspend fun logicDelete(ids: List<NodeId>): Long
-
+    suspend fun queryAllGenerated(): List<Node>
 }

@@ -185,6 +185,11 @@ fun Route.httpRoutes() {
         call.respond(ExpressionNetworkImpl.deleteTFDBData(req.ids))
     }
 
+    get("/expression/generated") {
+        call.respond(ExpressionNetworkImpl.allGenerated())
+    }
+
+
 }
 
 fun fib(n: Int): Int {
