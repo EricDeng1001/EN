@@ -662,7 +662,7 @@ abstract class ExpressionNetwork(
         }
     }
 
-    suspend fun deleteTFDBData(ids: List<DataId>): List<DataId> {
+    suspend fun deleteData(ids: List<DataId>): List<DataId> {
         val needDeletedIds = ids.mapNotNull { getNode(it) }.filter { it.expression.generated == true }
         try {
             val successDeletedNum = nodeRepository.logicDelete(needDeletedIds.map { it.id })
@@ -674,10 +674,10 @@ abstract class ExpressionNetwork(
 
         return needDeletedIds.mapNotNull {
             try {
-                executor.deleteData(it.expression.outputs[0])
+                dataInfo.deleteData(it.expression.outputs[0])
                 return@mapNotNull it.expression.outputs[0]
             } catch (e: Exception) {
-                logger.error("delete tfdb data $it error: $e")
+                logger.error("delete data ${it.expression.outputs[0]} error: $e")
                 return@mapNotNull null
             }
         }

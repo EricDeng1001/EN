@@ -23,6 +23,7 @@ data class DataInfoConfig(val http: Boolean, val host: String, val port: Int, va
     @Serializable
     data class Url(
         val getExpressDataInfo: String,
+        val deleteData: String,
     )
 }
 
@@ -68,6 +69,22 @@ object HttpDataInfo : DataInfo {
         }
 
         return response.body<String>()
+    }
+
+    override suspend fun deleteData(id: DataId) {
+        val url = URLBuilder(
+            protocol = if (config.http) URLProtocol.HTTP else URLProtocol.HTTPS,
+            host = config.host,
+            port = config.port,
+        ).apply {
+            path(config.url.deleteData.replace("{data_name}", id.str))
+            parameters.append("confirm", "true")
+        }.build().toString()
+
+        val response = client.delete(url)
+        if (response.status != HttpStatusCode.OK) {
+            throw Exception("deleteData failed: ${response.status}")
+        }
     }
 
 }

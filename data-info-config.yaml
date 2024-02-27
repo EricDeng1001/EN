@@ -5,3 +5,4 @@ request-timeout-millis: 60000
 connect-timeout-millis: 60000
 url:
   get-express-data-info: "/data_info/express_info/{data_id}"
+  delete-data: "/database/source/{data_name}"
