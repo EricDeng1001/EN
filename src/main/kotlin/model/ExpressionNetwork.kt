@@ -663,7 +663,10 @@ abstract class ExpressionNetwork(
     }
 
     suspend fun deleteData(ids: List<DataId>): List<DataId> {
-        val needDeletedIds = ids.mapNotNull { getNode(it) }.filter { it.expression.generated == true }
+        val needDeletedIds = ids.mapNotNull { getNode(it) }
+            .filter { it.expression.generated == true }
+            .filter { it.effectivePtr.value == 0 }
+            .filter { it.effectivePtr.value == 0 }
         try {
             val successDeletedNum = nodeRepository.logicDelete(needDeletedIds.map { it.id })
             logger.debug("logic delete ids num: {} deleted num: {}", ids.size, successDeletedNum)
